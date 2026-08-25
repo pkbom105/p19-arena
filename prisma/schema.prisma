@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Court {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  pricePerHour Int       @default(300)
+  isActive     Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  bookings     Booking[]
+}
+
+model TimeSlot {
+  id        String    @id @default(cuid())
+  startTime String
+  endTime   String
+  dayOfWeek Int
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  bookings  Booking[]
+}
+
+model RentalEquipment {
+  id           String   @id @default(cuid())
+  name         String
+  nameEn       String?
+  pricePerUnit Int
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model User {
+  id             String    @id @default(cuid())
+  lineUserId     String?   @unique
+  lineDisplayName String?
+  linePictureUrl String?
+  name           String?
+  phone          String?
+  email          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  bookings       Booking[]
+}
+
+model Booking {
+  id            String   @id @default(cuid())
+  courtId       String
+  timeSlotId    String
+  userId        String?
+  bookingDate   String
+  status        String   @default("pending")
+  playerName    String
+  playerPhone   String
+  playerEmail   String?
+  note          String?
+  racketCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  court         Court    @relation(fields: [courtId], references: [id])
+  timeSlot      TimeSlot @relation(fields: [timeSlotId], references: [id])
+  user          User?    @relation(fields: [userId], references: [id])
+
+  @@unique([courtId, timeSlotId, bookingDate])
+}
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
