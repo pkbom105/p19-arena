@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
@@ -21,7 +22,7 @@ export default function BookingPage() {
     setMounted(true)
 
     // Seed data on first load
-    fetch('/api/seed', { method: 'POST' }).catch(() => {})
+    fetch(apiUrl('/api/seed'), { method: 'POST' }).catch(() => {})
 
     // Restore bookingItems from sessionStorage (after LINE login redirect)
     const savedItems = sessionStorage.getItem('booking_items')
@@ -79,7 +80,7 @@ export default function BookingPage() {
   const handleLineCallback = async (code: string) => {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/line-auth', {
+      const res = await fetch(apiUrl('/api/line-auth'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

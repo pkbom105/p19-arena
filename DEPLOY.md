@@ -1,19 +1,38 @@
 # 🚀 Deploy บน VPS (Production) — P19 Pickleball Arena
 
 > Production = **VPS** (SQLite ทำงานเต็มรูปแบบ) · Vercel = **preview เท่านั้น** (ไม่มี DB — API จะ 500 บน preview ถือเป็นเรื่องปกติ)
+>
+> **Deploy URL:** `https://p19avenue.com/p19arena` — แอปรันภายใต้ subpath `/p19arena`
+> (ตั้งผ่าน `NEXT_PUBLIC_BASE_PATH=/p19arena` ตอน build — Dockerfile ตั้งค่านี้ให้แล้ว)
 
 ## 0) สิ่งที่ต้องมีบน VPS
-- **Node.js ≥ 20** (`node -v` เช็ก) — ไม่ต้องติดตั้ง bun (มี script แบบ node ให้แล้ว)
-- Git, และ (ถ้าต้องการ domain/HTTPS) **Caddy** — รีโปมี `Caddyfile` ให้แล้ว
+- **Docker** (แนะนำ — ใช้ `Dockerfile` ในรีโป) **หรือ** Node.js ≥ 20
+- Git และ (ถ้าต้องการ domain/HTTPS) **Caddy** / Nginx
 
-## 1) ดึงโค้ด + ติดตั้ง
+## 1) Deploy แบบ Docker (แนะนำ — ง่ายที่สุด)
+```bash
+git clone https://github.com/pkbom105/p19-arena.git && cd p19-arena
+docker build -t p19-arena .
+docker volume create p19-db
+docker run -d --name p19-arena --restart unless-stopped \
+  -p 3000:3000 \
+  -v p19-db:/app/db \
+  p19-arena
+# ทดสอบ: curl http://localhost:3000/p19arena → ต้องได้ 200
+```
+- `Dockerfile` build แบบ multi-stage (deps → builder → runner), รันด้วย user ไม่ใช่ root
+- **basePath `/p19arena` ถูกตั้งใน image แล้ว** (ARG `NEXT_PUBLIC_BASE_PATH=/p19arena` — ถ้าจะเปลี่ยน: `docker build --build-arg NEXT_PUBLIC_BASE_PATH=/ .`)
+- **DB อยู่ที่ `/app/db/data.db` ใน volume `p19-db`** — ข้อมูลการจองอยู่รอดตอน rebuild container
+- สำรอง DB: `docker exec p19-arena cat /app/db/data.db > backup-$(date +%F).db`
+
+## 2) Deploy แบบ Node ตรง ๆ (ไม่ใช้ Docker)
 ```bash
 git clone https://github.com/pkbom105/p19-arena.git && cd p19-arena
 npm ci
 npx prisma generate
 ```
 
-## 2) ตั้งค่า environment
+## 3) ตั้งค่า environment (เฉพาะแบบ Node — แบบ Docker ไม่ต้อง)
 `.env` **ไม่ถูก commit** (ปลอดภัย) — ต้องสร้างเองบน VPS:
 ```bash
 cat > .env <<'EOF'
@@ -21,17 +40,17 @@ DATABASE_URL="file:../db/dev.db"
 EOF
 ```
 
-## 3) สร้างฐานข้อมูล (SQLite)
+## 4) สร้างฐานข้อมูล (เฉพาะแบบ Node)
 ```bash
 mkdir -p db
 npx prisma db push        # สร้างตารางทั้งหมด (Court/TimeSlot/Equipment/User/Booking/Settings/PriceRule)
 ```
 > DB เก็บที่ `db/dev.db` — **สำรองไฟล์นี้เป็นประจำ** (`cp db/dev.db ~/backups/dev-$(date +%F).db`)
 
-## 4) Build + รัน
+## 5) Build + รัน (แบบ Node)
 ```bash
-npm run build:standalone          # next build + คัดลอก static/public เข้า standalone
-npm run start:standalone:node     # รันที่ 0.0.0.0:3000 (ทดสอบก่อน: curl localhost:3000)
+NEXT_PUBLIC_BASE_PATH=/p19arena npm run build:standalone   # ต้องมี basePath เพื่อให้ตรงกับ /p19arena
+npm run start:standalone:node     # รันที่ 0.0.0.0:3000 (ทดสอบก่อน: curl localhost:3000/p19arena)
 ```
 
 ### รันถาวรด้วย PM2 (แนะนำ)
@@ -64,23 +83,29 @@ WantedBy=multi-user.target
 sudo systemctl enable --now p19-arena
 ```
 
-## 5) Reverse proxy (Caddy — HTTPS อัตโนมัติ)
-ใช้ `Caddyfile` ที่มีในรีโป (proxy :8080 → :3000) หรือแก้เป็นโดเมนจริง:
+## 6) Reverse proxy — p19avenue.com/p19arena (Caddy — HTTPS อัตโนมัติ)
+**สำคัญ:** อย่า strip พาธ `/p19arena` ออก (ห้ามใช้ `handle_path`) — แอปตั้ง basePath ไว้แล้ว ต้องได้รับพาธเต็ม:
 ```
-yourdomain.com {
-    reverse_proxy localhost:3000
+p19avenue.com {
+    reverse_proxy /p19arena/* localhost:3000
 }
 ```
 ```bash
 sudo caddy start --config Caddyfile   # หรือ systemd
 ```
+ผลลัพธ์: `https://p19avenue.com/p19arena` → แอป P19 Pickleball Arena ✓
+> หมายเหตุ Nginx: ใช้ `location /p19arena { proxy_pass http://localhost:3000; }` (ไม่ต้อง rewrite พาธ)
 
-## 6) อัปเดตเวอร์ชันภายหลัง
+## 7) อัปเดตเวอร์ชันภายหลัง
 ```bash
-git pull
-npm ci && npx prisma generate
+# Docker
+git pull && docker build -t p19-arena . && docker rm -f p19-arena && \
+docker run -d --name p19-arena --restart unless-stopped -p 3000:3000 -v p19-db:/app/db p19-arena
+
+# Node
+git pull && npm ci && npx prisma generate
 npx prisma db push        # ถ้า schema เปลี่ยน (ระวัง --accept-data-loss)
-npm run build:standalone
+NEXT_PUBLIC_BASE_PATH=/p19arena npm run build:standalone
 pm2 restart p19-arena
 ```
 

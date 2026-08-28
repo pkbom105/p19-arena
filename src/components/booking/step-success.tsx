@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl, BASE_PATH } from '@/lib/api'
 import { CheckCircle2, RotateCcw, Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -64,7 +65,7 @@ export function StepSuccess() {
     if (!lookupPhone.trim()) return
     setLookupLoading(true)
     try {
-      const res = await fetch(`/api/my-bookings?playerPhone=${encodeURIComponent(lookupPhone)}`)
+      const res = await fetch(apiUrl(`/api/my-bookings?playerPhone=${encodeURIComponent(lookupPhone)}`))
       const data = await res.json()
       setMyBookings(data)
     } catch (err) {
@@ -97,7 +98,7 @@ export function StepSuccess() {
                 <Badge className="bg-emerald-600">{bookings.length} ใบ</Badge>
               </div>
               <span className="text-[11px] font-normal text-emerald-600 break-all">
-                {typeof window !== 'undefined' ? `${window.location.origin}/ticket/${firstId}` : ''}
+                {typeof window !== 'undefined' ? `${window.location.origin}${BASE_PATH}/ticket/${firstId}` : ''}
               </span>
             </CardTitle>
           </CardHeader>
@@ -106,14 +107,14 @@ export function StepSuccess() {
               <div key={b.id} className="space-y-1.5">
                 <div className="rounded-xl border border-emerald-100 overflow-hidden">
                   <iframe
-                    src={`/ticket/${b.ticketCode || b.id}`}
+                    src={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
                     title={`ตั๋ว ${b.id}`}
                     className="w-full h-[700px] border-0 bg-emerald-50/40"
                     loading="lazy"
                   />
                 </div>
                 <a
-                  href={`/ticket/${b.ticketCode || b.id}`}
+                  href={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
@@ -154,14 +155,14 @@ export function StepSuccess() {
                   <div key={b.id} className="space-y-1.5">
                     <div className="rounded-xl border border-emerald-100 overflow-hidden">
                       <iframe
-                        src={`/ticket/${b.ticketCode || b.id}`}
+                        src={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
                         title={`ตั๋ว ${b.id}`}
                         className="w-full h-[520px] border-0 bg-emerald-50/40"
                         loading="lazy"
                       />
                     </div>
                     <a
-                      href={`/ticket/${b.ticketCode || b.id}`}
+                      href={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"

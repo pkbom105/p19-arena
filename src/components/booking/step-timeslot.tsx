@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { Clock, ArrowLeft, Check, ChevronRight } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -41,9 +42,9 @@ export function StepTimeSlot() {
       setLoading(true)
       try {
         const [slotsRes, bookingsRes, rulesRes] = await Promise.all([
-          fetch(`/api/timeslots?date=${selectedDate}`),
-          fetch(`/api/bookings?date=${selectedDate}${selectedCourt ? `&courtId=${selectedCourt.id}` : ''}`),
-          fetch('/api/pricerules'),
+          fetch(apiUrl(`/api/timeslots?date=${selectedDate}`)),
+          fetch(apiUrl(`/api/bookings?date=${selectedDate}${selectedCourt ? `&courtId=${selectedCourt.id}` : ''}`)),
+          fetch(apiUrl('/api/pricerules')),
         ])
         const slotsData: TimeSlot[] = await slotsRes.json()
         const bookingsData = await bookingsRes.json()

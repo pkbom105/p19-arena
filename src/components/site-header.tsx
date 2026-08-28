@@ -27,13 +27,13 @@ export function SiteHeader() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <a
+            <Link
               href="/settings"
               className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               aria-label="ตั้งค่า"
             >
               <Settings className="h-4 w-4" />
-            </a>
+            </Link>
             <a
               href="tel:02-xxx-xxxx"
               className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700"

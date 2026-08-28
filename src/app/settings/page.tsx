@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl, BASE_PATH } from '@/lib/api'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -126,12 +127,12 @@ export default function SettingsPage() {
     setLoading(true)
     try {
       const [courtsRes, equipRes, settingsRes, rulesRes, slotsRes, bookingsRes] = await Promise.all([
-        fetch('/api/courts'),
-        fetch('/api/equipment'),
-        fetch('/api/settings'),
-        fetch('/api/pricerules'),
-        fetch('/api/timeslots?all=1'),
-        fetch('/api/bookings'),
+        fetch(apiUrl('/api/courts')),
+        fetch(apiUrl('/api/equipment')),
+        fetch(apiUrl('/api/settings')),
+        fetch(apiUrl('/api/pricerules')),
+        fetch(apiUrl('/api/timeslots?all=1')),
+        fetch(apiUrl('/api/bookings')),
       ])
       const courtsData = await courtsRes.json()
       const equipData = await equipRes.json()
@@ -159,10 +160,10 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       if (court.id) {
-        await fetch('/api/courts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(court) })
+        await fetch(apiUrl('/api/courts'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(court) })
         toast.success('อัปเดตสนามสำเร็จ')
       } else {
-        await fetch('/api/courts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(court) })
+        await fetch(apiUrl('/api/courts'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(court) })
         toast.success('เพิ่มสนามสำเร็จ')
       }
       setEditingCourt(null)
@@ -178,7 +179,7 @@ export default function SettingsPage() {
   const handleDeleteCourt = async (id: string) => {
     if (!confirm('ต้องการลบสนามนี้?')) return
     try {
-      await fetch(`/api/courts?id=${id}`, { method: 'DELETE' })
+      await fetch(apiUrl(`/api/courts?id=${id}`), { method: 'DELETE' })
       toast.success('ลบสนามสำเร็จ')
       fetchData()
     } catch {
@@ -191,10 +192,10 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       if (item.id) {
-        await fetch('/api/equipment', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
+        await fetch(apiUrl('/api/equipment'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
         toast.success('อัปเดตอุปกรณ์สำเร็จ')
       } else {
-        await fetch('/api/equipment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
+        await fetch(apiUrl('/api/equipment'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
         toast.success('เพิ่มอุปกรณ์สำเร็จ')
       }
       setEditingEquipment(null)
@@ -210,7 +211,7 @@ export default function SettingsPage() {
   const handleDeleteEquipment = async (id: string) => {
     if (!confirm('ต้องการลบอุปกรณ์นี้?')) return
     try {
-      await fetch(`/api/equipment?id=${id}`, { method: 'DELETE' })
+      await fetch(apiUrl(`/api/equipment?id=${id}`), { method: 'DELETE' })
       toast.success('ลบอุปกรณ์สำเร็จ')
       fetchData()
     } catch {
@@ -223,10 +224,10 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       if (rule.id) {
-        await fetch('/api/pricerules', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) })
+        await fetch(apiUrl('/api/pricerules'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) })
         toast.success('อัปเดตราคาสำเร็จ')
       } else {
-        await fetch('/api/pricerules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) })
+        await fetch(apiUrl('/api/pricerules'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) })
         toast.success('เพิ่มราคาสำเร็จ')
       }
       setEditingPriceRule(null)
@@ -242,7 +243,7 @@ export default function SettingsPage() {
   const handleDeletePriceRule = async (id: string) => {
     if (!confirm('ต้องการลบช่วงราคานี้?')) return
     try {
-      await fetch(`/api/pricerules?id=${id}`, { method: 'DELETE' })
+      await fetch(apiUrl(`/api/pricerules?id=${id}`), { method: 'DELETE' })
       toast.success('ลบช่วงราคาสำเร็จ')
       fetchData()
     } catch {
@@ -254,7 +255,7 @@ export default function SettingsPage() {
   const handleUpdateBooking = async (data: Partial<BookingRow>) => {
     setSaving(true)
     try {
-      const res = await fetch('/api/bookings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+      const res = await fetch(apiUrl('/api/bookings'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
       const result = await res.json()
       if (!res.ok) {
         toast.error(result.error || 'อัปเดตการจองไม่สำเร็จ')
@@ -273,7 +274,7 @@ export default function SettingsPage() {
   const handleCancelBooking = async (id: string) => {
     if (!confirm('ต้องการยกเลิกการจองนี้?')) return
     try {
-      await fetch(`/api/bookings?id=${id}`, { method: 'DELETE' })
+      await fetch(apiUrl(`/api/bookings?id=${id}`), { method: 'DELETE' })
       toast.success('ยกเลิกการจองสำเร็จ')
       fetchData()
     } catch {
@@ -283,7 +284,7 @@ export default function SettingsPage() {
 
   const handleCopyTicketLink = async (booking: BookingRow) => {
     const code = booking.ticketCode || booking.id
-    const url = `${window.location.origin}/ticket/${code}`
+    const url = `${window.location.origin}${BASE_PATH}/ticket/${code}`
     try {
       await navigator.clipboard.writeText(url)
       toast.success('คัดลอกลิงก์ตั๋วแล้ว')
@@ -295,7 +296,7 @@ export default function SettingsPage() {
   // Settings save
   const handleSaveSetting = async (key: string, value: string) => {
     try {
-      await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value }) })
+      await fetch(apiUrl('/api/settings'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value }) })
       setSettings(prev => ({ ...prev, [key]: value }))
       toast.success('บันทึกการตั้งค่าสำเร็จ')
     } catch {

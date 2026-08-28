@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl } from '@/lib/api'
 import { useState } from 'react'
 import Link from 'next/link'
 import { Search, Loader2, CalendarX2, Phone, Ticket } from 'lucide-react'
@@ -29,7 +30,7 @@ export default function CheckBookingPage() {
       const qs = byCode
         ? `ticketCode=${encodeURIComponent(code)}`
         : `playerPhone=${encodeURIComponent(phoneQ)}`
-      const res = await fetch(`/api/my-bookings?${qs}`)
+      const res = await fetch(apiUrl(`/api/my-bookings?${qs}`))
       const data = await res.json()
       setBookings(Array.isArray(data) ? data : [])
     } catch {
@@ -124,7 +125,7 @@ export default function CheckBookingPage() {
                 <div key={b.id} className="space-y-1.5">
                   <BookingTicket booking={b} hideActions />
                   <Link
-                    href={`/ticket/${b.ticketCode || b.id}`}
+                    href={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"

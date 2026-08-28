@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env*
+db
+*.log
+dev.nohup.log
+dev.log
+server.log
+examples
+mini-services
+tool-results
+.zscripts
+tests
+*.py

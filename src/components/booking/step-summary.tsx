@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl } from '@/lib/api'
 import { useEffect, useState, useRef } from 'react'
 import { Plus, Trash2, CalendarDays, MapPin, Clock, ClipboardList, Wrench, Minus, QrCode, Loader2, CheckCircle2, Download, Dumbbell } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -111,7 +112,7 @@ export function StepSummary() {
   useEffect(() => {
     async function fetchEquipment() {
       try {
-        const res = await fetch('/api/equipment')
+        const res = await fetch(apiUrl('/api/equipment'))
         const data = await res.json()
         // Initialize rental selections from available equipment
         const items: RentalItem[] = data.map((e: { id: string; name: string; nameEn: string | null; pricePerUnit: number }) => ({
@@ -135,7 +136,7 @@ export function StepSummary() {
 
   // Ensure price rules are loaded for accurate pricing display.
   useEffect(() => {
-    fetch('/api/pricerules')
+    fetch(apiUrl('/api/pricerules'))
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setPriceRules(data)

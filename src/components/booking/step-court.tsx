@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { MapPin, ArrowLeft, ChevronRight, Check } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -22,7 +23,7 @@ export function StepCourt() {
   useEffect(() => {
     async function fetchCourts() {
       try {
-        const res = await fetch('/api/courts')
+        const res = await fetch(apiUrl('/api/courts'))
         const data: Court[] = await res.json()
         setCourts(data)
       } catch (err) {
@@ -39,7 +40,7 @@ export function StepCourt() {
     if (!selectedDate) return
     async function fetchBookings() {
       try {
-        const res = await fetch(`/api/bookings?date=${selectedDate}`)
+        const res = await fetch(apiUrl(`/api/bookings?date=${selectedDate}`))
         const data = await res.json()
         setAllBookings(data.map((b: { courtId: string; timeSlotId: string }) => ({ courtId: b.courtId, timeSlotId: b.timeSlotId })))
       } catch {

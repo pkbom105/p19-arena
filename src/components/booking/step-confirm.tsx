@@ -1,5 +1,6 @@
 'use client'
 
+import { apiUrl } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 import {
   ArrowLeft, User, Phone, Mail, MessageSquare, CalendarDays,
@@ -61,7 +62,7 @@ export function StepConfirm() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetch('/api/pricerules')
+    fetch(apiUrl('/api/pricerules'))
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setPriceRules(data)
@@ -146,7 +147,7 @@ export function StepConfirm() {
     for (const item of bookingItems) {
       for (const slot of item.timeSlots) {
         try {
-          const res = await fetch('/api/bookings', {
+          const res = await fetch(apiUrl('/api/bookings'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
