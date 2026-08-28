@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   ArrowLeft, User, Phone, Mail, MessageSquare, CalendarDays,
-  MapPin, Clock, MessageCircle, Loader2, Wrench,
+  MapPin, Clock, UploadCloud, X, Wrench,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { useBookingStore } from '@/store/booking-store'
 import { toast } from 'sonner'
+import { getItemPriceWithRules, type PriceRule } from '@/lib/price'
 
 const THAI_MONTHS = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -22,8 +23,7 @@ const THAI_MONTHS = [
 
 const THAI_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
 
-const LINE_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || 'YOUR_CHANNEL_ID'
-const LINE_LOGIN_REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/` : ''
+const MAX_SLIP_SIZE = 300 * 1024 // 300kB
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00')
@@ -35,16 +35,14 @@ function formatPrice(amount: number) {
   return amount.toLocaleString()
 }
 
-function getItemPrice(item: { court: { pricePerHour: number }; timeSlots: { id: string }[] }) {
-  return item.timeSlots.length * item.court.pricePerHour
+function getItemPrice(item: { court: { pricePerHour: number }; timeSlots: { id: string; startTime: string }[]; date: string }, rules: PriceRule[]) {
+  return getItemPriceWithRules(item, rules)
 }
 
 export function StepConfirm() {
   const {
     bookingItems,
     rentalSelections,
-    lineUser,
-    lineLoginSkipped,
     bookingForm,
     setBookingForm,
     setStep,
@@ -52,13 +50,27 @@ export function StepConfirm() {
     setIsLoading,
     isLoading,
     setSubmittedBookings,
-    setLineLoginSkipped,
+    slip,
+    setSlip,
+    priceRules,
+    setPriceRules,
   } = useBookingStore()
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [slipError, setSlipError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    fetch('/api/pricerules')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setPriceRules(data)
+      })
+      .catch(() => {})
+  }, [setPriceRules])
 
   const totalSlots = bookingItems.reduce((sum, item) => sum + item.timeSlots.length, 0)
-  const courtPrice = bookingItems.reduce((sum, item) => sum + getItemPrice(item), 0)
+  const courtPrice = bookingItems.reduce((sum, item) => sum + getItemPrice(item, priceRules), 0)
   const rentalPrice = rentalSelections.reduce((sum, r) => sum + r.pricePerUnit * r.quantity, 0)
   const totalPrice = courtPrice + rentalPrice
 
@@ -78,33 +90,48 @@ export function StepConfirm() {
       errs.playerPhone = 'เบอร์โทรไม่ถูกต้อง'
     if (bookingForm.playerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingForm.playerEmail))
       errs.playerEmail = 'อีเมลไม่ถูกต้อง'
+    if (!slip) errs.slip = 'กรุณาอัปโหลดสลิปการชำระเงิน'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
 
-  const handleLineLogin = useCallback(() => {
-    // Persist bookingItems for after redirect
-    sessionStorage.setItem('booking_items', JSON.stringify(bookingItems))
-    sessionStorage.setItem('booking_form', JSON.stringify(bookingForm))
-    sessionStorage.setItem('booking_return_step', '5')
-    sessionStorage.setItem('rental_selections', JSON.stringify(rentalSelections))
+  const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    setSlipError(null)
+    if (!file) return
 
-    setIsLoading(true)
-    const state = crypto.randomUUID()
-    sessionStorage.setItem('line_login_state', state)
-    sessionStorage.setItem('line_login_intent', 'booking')
+    // Validate type: jpg/jpeg/png only
+    const isJpg = file.type === 'image/jpeg'
+    const isPng = file.type === 'image/png'
+    if (!isJpg && !isPng) {
+      setSlipError('รองรับเฉพาะไฟล์ .jpg หรือ .png เท่านั้น')
+      e.target.value = ''
+      return
+    }
 
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: LINE_CHANNEL_ID,
-      redirect_uri: LINE_LOGIN_REDIRECT_URI,
-      state,
-      scope: 'profile openid',
-      bot_prompt: 'normal',
-    })
+    // Validate size: max 300kB
+    if (file.size > MAX_SLIP_SIZE) {
+      setSlipError(`ไฟล์ใหญ่เกินไป (สูงสุด 300kB) — ไฟล์นี้ ${Math.ceil(file.size / 1024)}kB`)
+      e.target.value = ''
+      return
+    }
 
-    window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`
-  }, [bookingItems, bookingForm, rentalSelections, setIsLoading])
+    const reader = new FileReader()
+    reader.onload = () => {
+      setSlip({
+        dataUrl: String(reader.result),
+        name: file.name,
+        size: file.size,
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveSlip = () => {
+    setSlip(null)
+    setSlipError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const handleSubmit = async () => {
     if (!validate()) return
@@ -130,8 +157,9 @@ export function StepConfirm() {
               playerPhone: bookingForm.playerPhone,
               playerEmail: bookingForm.playerEmail || undefined,
               note: bookingForm.note || undefined,
-              userId: lineUser?.id || undefined,
               racketCount: totalRackets,
+              slipDataUrl: slip?.dataUrl || undefined,
+              slipName: slip?.name || undefined,
             }),
           })
           const data = await res.json()
@@ -178,7 +206,7 @@ export function StepConfirm() {
         <CardContent className="px-4 pb-4 space-y-2.5">
           {bookingItems.map((item, idx) => {
             const sortedSlots = [...item.timeSlots].sort((a, b) => a.sortOrder - b.sortOrder)
-            const itemPrice = getItemPrice(item)
+            const itemPrice = getItemPrice(item, priceRules)
             return (
               <div key={item.id}>
                 {idx > 0 && <Separator className="my-2" />}
@@ -246,76 +274,61 @@ export function StepConfirm() {
         </CardContent>
       </Card>
 
-      {/* LINE Login section */}
-      {!lineUser && !lineLoginSkipped && (
-        <Card className="border-green-200">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-                <MessageCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <h3 className="font-medium text-sm">เข้าสู่ระบบด้วย LINE</h3>
-                <p className="text-[11px] text-muted-foreground">รับการแจ้งเตือนและดูประวัติการจอง</p>
-              </div>
+      {/* Slip upload section */}
+      <Card className="border-emerald-200">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+              <UploadCloud className="h-5 w-5 text-emerald-600" />
             </div>
-            <div className="flex gap-2">
-              <Button
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                size="sm"
-                onClick={handleLineLogin}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                ) : (
-                  <svg className="h-4 w-4 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.5 2 2 5.8 2 10.4c0 2.8 1.5 5.3 3.8 7l-1 3.6 4.2-2.2c1 .3 2 .4 3 .4 5.5 0 10-3.8 10-8.4S17.5 2 12 2z" />
-                  </svg>
-                )}
-                เข้าสู่ระบบ LINE
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={() => setLineLoginSkipped(true)}
-              >
-                ข้าม
-              </Button>
+            <div>
+              <h3 className="font-medium text-sm">อัปโหลดสลิปการชำระเงิน</h3>
+              <p className="text-[11px] text-muted-foreground">รองรับไฟล์ .jpg หรือ .png เท่านั้น ขนาดไม่เกิน 300kB</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* LINE user badge */}
-      {lineUser && (
-        <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-          {lineUser.linePictureUrl && (
-            <img
-              src={lineUser.linePictureUrl}
-              alt={lineUser.lineDisplayName || ''}
-              className="w-10 h-10 rounded-full"
-            />
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">
-              {lineUser.lineDisplayName || lineUser.name}
-            </div>
-            <div className="text-xs text-muted-foreground">เข้าสู่ระบบด้วย LINE แล้ว</div>
           </div>
-          <svg className="h-5 w-5 text-green-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.5 2 2 5.8 2 10.4c0 2.8 1.5 5.3 3.8 7l-1 3.6 4.2-2.2c1 .3 2 .4 3 .4 5.5 0 10-3.8 10-8.4S17.5 2 12 2z" />
-          </svg>
-        </div>
-      )}
 
-      {lineLoginSkipped && !lineUser && (
-        <div className="flex items-center gap-2 p-2.5 bg-muted/50 rounded-lg border">
-          <MessageCircle className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">จองโดยไม่ได้เข้าสู่ระบบ LINE</span>
-        </div>
-      )}
+          {slip ? (
+            <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              {slip.dataUrl && (
+                <img src={slip.dataUrl} alt="สลิป" className="w-14 h-14 object-cover rounded-lg shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{slip.name}</div>
+                <div className="text-xs text-emerald-700">อัปโหลดแล้ว ({Math.ceil(slip.size / 1024)}kB)</div>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveSlip}
+                className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 shrink-0"
+                aria-label="ลบสลิป"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full border-2 border-dashed border-emerald-300 rounded-xl p-6 flex flex-col items-center gap-2 hover:bg-emerald-50/50 transition-colors cursor-pointer"
+            >
+              <UploadCloud className="h-8 w-8 text-emerald-500" />
+              <span className="text-sm font-medium text-emerald-700">แตะเพื่อเลือกไฟล์สลิป</span>
+              <span className="text-[11px] text-muted-foreground">jpg / png — ไม่เกิน 300kB</span>
+            </button>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={handleSlipChange}
+          />
+
+          {slipError && <p className="text-xs text-red-500">{slipError}</p>}
+          {errors.slip && <p className="text-xs text-red-500">{errors.slip}</p>}
+        </CardContent>
+      </Card>
 
       <Separator />
 

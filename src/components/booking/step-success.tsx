@@ -3,15 +3,15 @@
 import { CheckCircle2, RotateCcw, Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { useBookingStore } from '@/store/booking-store'
 import { useState } from 'react'
 
 interface BookingResult {
   id: string
-  court: { name: string }
-  timeSlot: { startTime: string; endTime: string }
+  ticketCode?: string | null
+  court: { id: string; name: string }
+  timeSlot: { id: string; startTime: string; endTime: string }
   bookingDate: string
   playerName: string
   playerPhone: string
@@ -48,15 +48,7 @@ export function StepSuccess() {
   const [lookupLoading, setLookupLoading] = useState(false)
 
   const bookings = submittedBookings as BookingResult[]
-  const first = bookings[0]
-
-  // Group bookings by date + court
-  const grouped = bookings.reduce<Record<string, BookingResult[]>>((acc, b) => {
-    const key = `${b.bookingDate}__${b.court.name}`
-    if (!acc[key]) acc[key] = []
-    acc[key].push(b)
-    return acc
-  }, {})
+  const firstId = bookings[0]?.ticketCode || bookings[0]?.id || ''
 
   const handleNewBooking = () => {
     resetBookingForm()
@@ -95,55 +87,41 @@ export function StepSuccess() {
         </p>
       </div>
 
-      {/* Booking details - grouped by date/court */}
+      {/* Booking tickets — embed the ticket URL page */}
       {bookings.length > 0 && (
         <Card className="border-emerald-200">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center justify-between">
-              <span>รายละเอียดการจอง</span>
-              <Badge className="bg-emerald-600">{bookings.length} รายการ</Badge>
+            <CardTitle className="text-base flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span>ตั๋วการจองของคุณ</span>
+                <Badge className="bg-emerald-600">{bookings.length} ใบ</Badge>
+              </div>
+              <span className="text-[11px] font-normal text-emerald-600 break-all">
+                {typeof window !== 'undefined' ? `${window.location.origin}/ticket/${firstId}` : ''}
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">ชื่อ</span>
-              <span className="font-medium">{first.playerName}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">เบอร์โทร</span>
-              <span className="font-medium">{first.playerPhone}</span>
-            </div>
-            <Separator />
-
-            {Object.entries(grouped).map(([key, groupBookings]) => {
-              const [dateStr, courtName] = key.split('__')
-              const sorted = [...groupBookings].sort(
-                (a, b) => a.timeSlot.startTime.localeCompare(b.timeSlot.startTime)
-              )
-              return (
-                <div key={key} className="space-y-1.5">
-                  <div className="text-sm font-medium text-emerald-700">
-                    {formatDate(dateStr)} — {courtName}
-                  </div>
-                  {sorted.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between bg-emerald-50 rounded-lg px-3 py-2"
-                    >
-                      <span className="text-sm font-medium">
-                        {b.timeSlot.startTime} - {b.timeSlot.endTime} น.
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="text-emerald-700 border-emerald-300 text-[11px]"
-                      >
-                        {b.status === 'confirmed' ? 'ยืนยันแล้ว' : b.status}
-                      </Badge>
-                    </div>
-                  ))}
+            {bookings.map((b) => (
+              <div key={b.id} className="space-y-1.5">
+                <div className="rounded-xl border border-emerald-100 overflow-hidden">
+                  <iframe
+                    src={`/ticket/${b.ticketCode || b.id}`}
+                    title={`ตั๋ว ${b.id}`}
+                    className="w-full h-[700px] border-0 bg-emerald-50/40"
+                    loading="lazy"
+                  />
                 </div>
-              )
-            })}
+                <a
+                  href={`/ticket/${b.ticketCode || b.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
+                >
+                  เปิดหน้าตั๋วออนไลน์ → {`${typeof window !== 'undefined' ? window.location.origin : ''}/ticket/${b.ticketCode || b.id}`}
+                </a>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
@@ -171,27 +149,25 @@ export function StepSuccess() {
               </Button>
             </div>
             {myBookings.length > 0 && (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-96 overflow-y-auto">
                 {myBookings.map((b) => (
-                  <div
-                    key={b.id}
-                    className="flex justify-between items-center p-2 bg-muted rounded-lg text-sm"
-                  >
-                    <div>
-                      <div className="font-medium">{b.court.name}</div>
-                      <div className="text-muted-foreground text-xs">
-                        {formatDate(b.bookingDate)} | {b.timeSlot.startTime}-{b.timeSlot.endTime}
-                      </div>
+                  <div key={b.id} className="space-y-1.5">
+                    <div className="rounded-xl border border-emerald-100 overflow-hidden">
+                      <iframe
+                        src={`/ticket/${b.ticketCode || b.id}`}
+                        title={`ตั๋ว ${b.id}`}
+                        className="w-full h-[520px] border-0 bg-emerald-50/40"
+                        loading="lazy"
+                      />
                     </div>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        b.status === 'confirmed'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}
+                    <a
+                      href={`/ticket/${b.ticketCode || b.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
                     >
-                      {b.status === 'confirmed' ? 'ยืนยันแล้ว' : b.status}
-                    </span>
+                      เปิดหน้าตั๋วออนไลน์ → {`${typeof window !== 'undefined' ? window.location.origin : ''}/ticket/${b.ticketCode || b.id}`}
+                    </a>
                   </div>
                 ))}
               </div>

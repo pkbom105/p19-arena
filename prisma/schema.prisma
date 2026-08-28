@@ -57,6 +57,7 @@ model User {
 
 model Booking {
   id            String   @id @default(cuid())
+  ticketCode    String?  @unique
   courtId       String
   timeSlotId    String
   userId        String?
@@ -67,6 +68,8 @@ model Booking {
   playerEmail   String?
   note          String?
   racketCount   Int      @default(0)
+  slipName      String?
+  slipDataUrl   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -82,4 +85,16 @@ model Settings {
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model PriceRule {
+  id        String    @id @default(cuid())
+  name      String?
+  days      String?   // "0,1,2,3,4,5,6" = ตัวเลขวัน (0=อาทิตย์..6=เสาร์); null/"" = ทุกวัน
+  startTime String
+  endTime   String
+  price     Int
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }

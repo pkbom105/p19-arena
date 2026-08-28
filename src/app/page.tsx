@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Dumbbell, Phone, MapPin, Settings } from 'lucide-react'
+import { MapPin } from 'lucide-react'
+import { SiteHeader } from '@/components/site-header'
 import { StepperHeader } from '@/components/booking/stepper-header'
 import { StepDate } from '@/components/booking/step-date'
 import { StepCourt } from '@/components/booking/step-court'
@@ -111,38 +112,8 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center">
-                <Dumbbell className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-bold text-base leading-tight">P19 Pickleball Arena</h1>
-                <p className="text-[11px] text-muted-foreground leading-tight">จองสนามออนไลน์</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <a
-                href="/settings"
-                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                aria-label="ตั้งค่า"
-              >
-                <Settings className="h-4 w-4" />
-              </a>
-              <a
-                href="tel:02-xxx-xxxx"
-                className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700"
-              >
-                <Phone className="h-4 w-4" />
-                <span className="hidden sm:inline">ติดต่อเรา</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Header + Menu */}
+      <SiteHeader />
 
       {/* Main content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4">

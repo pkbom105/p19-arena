@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { useBookingStore } from '@/store/booking-store'
 import type { TimeSlot } from '@/store/booking-store'
+import { getSlotPrice } from '@/lib/price'
 
 function formatPrice(amount: number) {
   return amount.toLocaleString()
@@ -27,6 +28,8 @@ export function StepTimeSlot() {
     addBookingItem,
     setStep,
     goToStep,
+    priceRules,
+    setPriceRules,
   } = useBookingStore()
 
   const [loading, setLoading] = useState(true)
@@ -37,14 +40,17 @@ export function StepTimeSlot() {
     async function fetchAll() {
       setLoading(true)
       try {
-        const [slotsRes, bookingsRes] = await Promise.all([
+        const [slotsRes, bookingsRes, rulesRes] = await Promise.all([
           fetch(`/api/timeslots?date=${selectedDate}`),
           fetch(`/api/bookings?date=${selectedDate}${selectedCourt ? `&courtId=${selectedCourt.id}` : ''}`),
+          fetch('/api/pricerules'),
         ])
         const slotsData: TimeSlot[] = await slotsRes.json()
         const bookingsData = await bookingsRes.json()
+        const rulesData = await rulesRes.json()
         setTimeSlots(slotsData)
         setBookedSlots(bookingsData.map((b: { timeSlotId: string; courtId: string }) => `${b.courtId}-${b.timeSlotId}`))
+        if (Array.isArray(rulesData)) setPriceRules(rulesData)
       } catch (err) {
         console.error('Failed to fetch slots/bookings', err)
       } finally {
@@ -52,7 +58,7 @@ export function StepTimeSlot() {
       }
     }
     fetchAll()
-  }, [selectedDate, selectedCourt, setTimeSlots, setBookedSlots])
+  }, [selectedDate, selectedCourt, setTimeSlots, setBookedSlots, setPriceRules])
 
   const isBooked = (slotId: string) =>
     selectedCourt ? bookedSlots.includes(`${selectedCourt.id}-${slotId}`) : false
@@ -74,8 +80,11 @@ export function StepTimeSlot() {
     }
   }
 
-  const pricePerSlot = selectedCourt?.pricePerHour || 0
-  const totalPrice = selectedTimeSlots.length * pricePerSlot
+  const basePrice = selectedCourt?.pricePerHour || 0
+  const dayOfWeek = selectedDate ? new Date(selectedDate + 'T00:00:00').getDay() : 0
+  const priceOf = (startTime: string) => getSlotPrice(basePrice, dayOfWeek, startTime, priceRules)
+  const pricePerSlot = basePrice
+  const totalPrice = selectedTimeSlots.reduce((sum, s) => sum + priceOf(s.startTime), 0)
 
   if (loading) {
     return (
@@ -103,7 +112,9 @@ export function StepTimeSlot() {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
-          <span className="text-[11px] text-muted-foreground">฿{formatPrice(pricePerSlot)}/ชม.</span>
+          {priceRules.length === 0 && (
+            <span className="text-[11px] text-muted-foreground">฿{formatPrice(basePrice)}/ชม.</span>
+          )}
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
           {slots.map((slot) => {
@@ -146,7 +157,7 @@ export function StepTimeSlot() {
                   <div className="text-xs text-muted-foreground">{slot.endTime}</div>
                   {!disabled && (
                     <div className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                      ฿{formatPrice(pricePerSlot)}
+                      ฿{formatPrice(priceOf(slot.startTime))}
                     </div>
                   )}
                 </CardContent>
@@ -217,9 +228,16 @@ export function StepTimeSlot() {
             >
               ล้างทั้งหมด
             </button>
-            <span className="text-xs text-muted-foreground">
-              ฿{formatPrice(pricePerSlot)} × {selectedTimeSlots.length} ชม. = <span className="font-semibold text-emerald-700">฿{formatPrice(totalPrice)}</span>
-            </span>
+            {priceRules.length === 0 ? (
+              <span className="text-xs text-muted-foreground">
+                ฿{formatPrice(pricePerSlot)} × {selectedTimeSlots.length} ชม. ={' '}
+                <span className="font-semibold text-emerald-700">฿{formatPrice(totalPrice)}</span>
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                รวม = <span className="font-semibold text-emerald-700">฿{formatPrice(totalPrice)}</span>
+              </span>
+            )}
           </div>
           <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700"

@@ -26,6 +26,16 @@ export interface RentalItem {
   quantity: number
 }
 
+export interface PriceRule {
+  id: string
+  name: string | null
+  days: string | null // "0,1,2,3,4,5,6" (0=อาทิตย์..6=เสาร์) ; null/"" = ทุกวัน
+  startTime: string
+  endTime: string
+  price: number
+  sortOrder: number
+}
+
 export interface BookingItem {
   id: string
   date: string
@@ -50,6 +60,12 @@ export interface LineUser {
   name: string | null
   phone: string | null
   email: string | null
+}
+
+export interface PaymentSlip {
+  dataUrl: string
+  name: string
+  size: number
 }
 
 interface BookingStore {
@@ -85,12 +101,18 @@ interface BookingStore {
   setRentalSelections: (items: RentalItem[]) => void
   updateRentalQuantity: (itemId: string, quantity: number) => void
 
+  priceRules: PriceRule[]
+  setPriceRules: (rules: PriceRule[]) => void
+
   bookingForm: BookingData
   setBookingForm: (data: Partial<BookingData>) => void
   resetBookingForm: () => void
 
   lineUser: LineUser | null
   setLineUser: (user: LineUser | null) => void
+
+  slip: PaymentSlip | null
+  setSlip: (slip: PaymentSlip | null) => void
 
   submittedBookings: unknown[]
   setSubmittedBookings: (bookings: unknown[]) => void
@@ -197,7 +219,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       bookingItems: state.bookingItems.filter((item) => item.id !== itemId),
     })),
 
-  clearAllBookingItems: () => set({ bookingItems: [], rentalSelections: [] }),
+  clearAllBookingItems: () => set({ bookingItems: [], rentalSelections: [], slip: null }),
 
   rentalSelections: [],
   setRentalSelections: (rentalSelections) => set({ rentalSelections }),
@@ -208,6 +230,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       ),
     })),
 
+  priceRules: [],
+  setPriceRules: (priceRules) => set({ priceRules }),
+
   bookingForm: { ...initialForm },
   setBookingForm: (data) =>
     set((state) => ({ bookingForm: { ...state.bookingForm, ...data } })),
@@ -215,6 +240,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   lineUser: null,
   setLineUser: (lineUser) => set({ lineUser }),
+
+  slip: null,
+  setSlip: (slip) => set({ slip }),
 
   submittedBookings: [],
   setSubmittedBookings: (submittedBookings) => set({ submittedBookings }),

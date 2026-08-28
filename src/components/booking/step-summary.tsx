@@ -1,13 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Trash2, CalendarDays, MapPin, Clock, ChevronRight, ClipboardList, Wrench, Minus } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Plus, Trash2, CalendarDays, MapPin, Clock, ClipboardList, Wrench, Minus, QrCode, Loader2, CheckCircle2, Download, Dumbbell } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { useBookingStore } from '@/store/booking-store'
 import type { BookingItem, RentalItem } from '@/store/booking-store'
+import { getItemPriceWithRules, type PriceRule } from '@/lib/price'
+import { generatePromptPayQR } from '@/components/qrcode'
+import { toPng } from 'html-to-image'
 
 const THAI_MONTHS = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -26,8 +30,8 @@ function formatPrice(amount: number) {
   return amount.toLocaleString()
 }
 
-function getItemPrice(item: BookingItem) {
-  return item.timeSlots.length * item.court.pricePerHour
+function getItemPrice(item: BookingItem, rules: PriceRule[]) {
+  return getItemPriceWithRules(item, rules)
 }
 
 function getItemHours(item: BookingItem) {
@@ -38,9 +42,9 @@ function getItemHours(item: BookingItem) {
   }, 0)
 }
 
-function BookingItemCard({ item, onRemove }: { item: BookingItem; onRemove: () => void }) {
+function BookingItemCard({ item, onRemove, rules }: { item: BookingItem; onRemove: () => void; rules: PriceRule[] }) {
   const sortedSlots = [...item.timeSlots].sort((a, b) => a.sortOrder - b.sortOrder)
-  const itemPrice = getItemPrice(item)
+  const itemPrice = getItemPrice(item, rules)
   const itemHours = getItemHours(item)
 
   return (
@@ -94,9 +98,15 @@ function BookingItemCard({ item, onRemove }: { item: BookingItem; onRemove: () =
 }
 
 export function StepSummary() {
-  const { bookingItems, removeBookingItem, setStep, goToStep, rentalSelections, setRentalSelections, updateRentalQuantity } = useBookingStore()
+  const { bookingItems, removeBookingItem, setStep, goToStep, rentalSelections, setRentalSelections, updateRentalQuantity, priceRules, setPriceRules } = useBookingStore()
   const [equipment, setEquipment] = useState<RentalItem[]>([])
   const [equipLoading, setEquipLoading] = useState(true)
+  const [qrOpen, setQrOpen] = useState(false)
+  const [qrLoading, setQrLoading] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [paid, setPaid] = useState(false)
+  const qrReceiptRef = useRef<HTMLDivElement>(null)
+  const [qrDownloading, setQrDownloading] = useState(false)
 
   useEffect(() => {
     async function fetchEquipment() {
@@ -123,9 +133,19 @@ export function StepSummary() {
     fetchEquipment()
   }, [setRentalSelections])
 
+  // Ensure price rules are loaded for accurate pricing display.
+  useEffect(() => {
+    fetch('/api/pricerules')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setPriceRules(data)
+      })
+      .catch(() => {})
+  }, [setPriceRules])
+
   const totalSlots = bookingItems.reduce((sum, item) => sum + item.timeSlots.length, 0)
   const totalHours = bookingItems.reduce((sum, item) => sum + getItemHours(item), 0)
-  const courtPrice = bookingItems.reduce((sum, item) => sum + getItemPrice(item), 0)
+  const courtPrice = bookingItems.reduce((sum, item) => sum + getItemPrice(item, priceRules), 0)
   const rentalPrice = rentalSelections.reduce((sum, r) => sum + r.pricePerUnit * r.quantity, 0)
   const totalPrice = courtPrice + rentalPrice
 
@@ -134,8 +154,39 @@ export function StepSummary() {
     goToStep(2)
   }
 
-  const handleProceed = () => {
-    setStep(5)
+  const handleProceed = async () => {
+    setQrOpen(true)
+    setPaid(false)
+    setQrLoading(true)
+    setQrDataUrl(null)
+    try {
+      const url = await generatePromptPayQR(totalPrice)
+      setQrDataUrl(url)
+    } catch (err) {
+      console.error('Failed to generate QR', err)
+    } finally {
+      setQrLoading(false)
+    }
+  }
+
+  const handleCloseQr = () => {
+    setQrOpen(false)
+  }
+
+  const handleDownloadQr = async () => {
+    if (!qrDataUrl || !qrReceiptRef.current) return
+    setQrDownloading(true)
+    try {
+      const dataUrl = await toPng(qrReceiptRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' })
+      const link = document.createElement('a')
+      link.download = `promptpay-${totalPrice}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (err) {
+      console.error('Failed to download QR receipt', err)
+    } finally {
+      setQrDownloading(false)
+    }
   }
 
   if (bookingItems.length === 0) {
@@ -204,7 +255,7 @@ export function StepSummary() {
             {index > 0 && (
               <div className="absolute -top-2 left-6 right-6 h-px border-t border-dashed border-emerald-200" />
             )}
-            <BookingItemCard item={item} onRemove={() => removeBookingItem(item.id)} />
+            <BookingItemCard item={item} onRemove={() => removeBookingItem(item.id)} rules={priceRules} />
           </div>
         ))}
       </div>
@@ -286,10 +337,171 @@ export function StepSummary() {
           className="w-full bg-emerald-600 hover:bg-emerald-700"
           onClick={handleProceed}
         >
-          ถัดไป
-          <ChevronRight className="h-4 w-4 ml-1" />
+          <QrCode className="h-4 w-4 mr-2" />
+          จ่ายเงิน
         </Button>
       </div>
+
+      {/* PromptPay Payment Dialog */}
+      <Dialog open={qrOpen} onOpenChange={(open) => { if (!open) handleCloseQr() }}>
+        <DialogContent className="sm:max-w-md">
+          {paid ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-emerald-700">
+                  <CheckCircle2 className="h-5 w-5" />
+                  ชำระเงินสำเร็จ
+                </DialogTitle>
+              </DialogHeader>
+              <div className="text-center py-4 space-y-3">
+                <p className="text-sm text-muted-foreground">ขอบคุณที่ชำระเงินเรียบร้อย</p>
+                <div className="text-lg font-bold text-emerald-700">฿{formatPrice(totalPrice)}</div>
+              </div>
+              <DialogFooter>
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => { setQrOpen(false); setStep(5) }}>
+                  ดำเนินการต่อ
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <QrCode className="h-5 w-5 text-emerald-600" />
+                  ชำระเงินด้วย PromptPay
+                </DialogTitle>
+                <DialogDescription>
+                  สแกน QR Code เพื่อชำระเงินจำนวน <span className="font-semibold text-emerald-700">฿{formatPrice(totalPrice)}</span>
+                </DialogDescription>
+              </DialogHeader>
+
+              {/* รายละเอียดการจอง (label) */}
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 space-y-1.5">
+                <div className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  รายละเอียดการจอง
+                </div>
+                {bookingItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">ไม่มีรายการจอง</p>
+                ) : (
+                  bookingItems.map((item) => (
+                    <div key={item.id} className="text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <CalendarDays className="h-3 w-3 shrink-0 text-emerald-600" />
+                        {formatDate(item.date)} — {item.court.name}
+                      </div>
+                      <div className="flex items-center gap-1 ml-4">
+                        <Clock className="h-3 w-3 shrink-0 text-emerald-600" />
+                        {[...item.timeSlots]
+                          .sort((a, b) => a.sortOrder - b.sortOrder)
+                          .map((s) => `${s.startTime}-${s.endTime}`)
+                          .join(', ')}{' '}
+                        น. ({item.timeSlots.length} ชม.)
+                      </div>
+                    </div>
+                  ))
+                )}
+                <div className="pt-1 border-t border-emerald-100 flex justify-between text-xs">
+                  <span className="text-muted-foreground">รวมทั้งสิ้น</span>
+                  <span className="font-semibold text-emerald-700">฿{formatPrice(totalPrice)}</span>
+                </div>
+              </div>
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="w-56 h-56 bg-white border rounded-xl flex items-center justify-center">
+                  {qrLoading ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                  ) : qrDataUrl ? (
+                    <img src={qrDataUrl} alt="PromptPay QR" className="w-full h-full rounded-xl" />
+                  ) : (
+                    <p className="text-sm text-muted-foreground px-4 text-center">ไม่สามารถสร้าง QR ได้</p>
+                  )}
+                </div>
+                {qrDataUrl && !qrLoading && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    onClick={handleDownloadQr}
+                    disabled={qrDownloading}
+                  >
+                    {qrDownloading ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    ดาวน์โหลด QR
+                  </Button>
+                )}
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" className="flex-1" onClick={handleCloseQr}>
+                  ยกเลิก
+                </Button>
+                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => setPaid(true)}>
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  ชำระเงินแล้ว
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* พร้อมดาวน์โหลด: แคปภาพใบเสร็จ (QR + รายละเอียดการจอง) ไว้ออฟสกรีน */}
+      {qrDataUrl && (
+        <div className="fixed left-[-9999px] top-0 pointer-events-none" aria-hidden>
+          <div ref={qrReceiptRef} className="w-[320px] bg-white p-5 text-slate-800 font-sans">
+            {/* หัวใบเสร็จ */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+                <Dumbbell className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-bold">P19 Pickleball Arena</div>
+                <div className="text-[10px] text-slate-500">ชำระเงินด้วย PromptPay</div>
+              </div>
+            </div>
+
+            {/* รายละเอียดการจอง */}
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 space-y-1.5 text-left">
+              <div className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                <ClipboardList className="h-3.5 w-3.5" />
+                รายละเอียดการจอง
+              </div>
+              {bookingItems.map((item) => (
+                <div key={item.id} className="text-xs text-slate-600">
+                  <div className="flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3 shrink-0 text-emerald-600" />
+                    {formatDate(item.date)} — {item.court.name}
+                  </div>
+                  <div className="flex items-center gap-1 ml-4">
+                    <Clock className="h-3 w-3 shrink-0 text-emerald-600" />
+                    {[...item.timeSlots]
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map((s) => `${s.startTime}-${s.endTime}`)
+                      .join(', ')}{' '}
+                    น. ({item.timeSlots.length} ชม.)
+                  </div>
+                </div>
+              ))}
+              <div className="pt-1 border-t border-emerald-100 flex justify-between text-xs">
+                <span className="text-slate-500">รวมทั้งสิ้น</span>
+                <span className="font-semibold text-emerald-700">฿{formatPrice(totalPrice)}</span>
+              </div>
+            </div>
+
+            {/* QR Code */}
+            <div className="mt-3 flex flex-col items-center">
+              <div className="w-44 h-44 bg-white border rounded-lg p-1">
+                <img src={qrDataUrl} alt="PromptPay QR" className="w-full h-full" />
+              </div>
+              <div className="mt-2 text-[11px] text-slate-600 font-medium">
+                สแกน QR Code เพื่อชำระเงิน ฿{formatPrice(totalPrice)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

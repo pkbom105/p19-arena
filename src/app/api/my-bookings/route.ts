@@ -6,10 +6,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const lineUserId = searchParams.get('lineUserId')
     const playerPhone = searchParams.get('playerPhone')
+    const ticketCode = searchParams.get('ticketCode')
 
-    if (!lineUserId && !playerPhone) {
+    if (!lineUserId && !playerPhone && !ticketCode) {
       return NextResponse.json(
-        { error: 'กรุณาระบุ lineUserId หรือ playerPhone' },
+        { error: 'กรุณาระบุ lineUserId, playerPhone หรือ ticketCode' },
         { status: 400 }
       )
     }
@@ -22,8 +23,13 @@ export async function GET(request: NextRequest) {
       } else {
         return NextResponse.json([])
       }
-    } else if (playerPhone) {
+    }
+    if (playerPhone) {
       where.playerPhone = playerPhone
+    }
+    if (ticketCode) {
+      // รหัสตั๋วเก็บเป็นตัวพิมพ์ใหญ่เสมอ — แปลงให้ค้นได้ทั้งพิมพ์เล็ก/พิมพ์ใหญ่
+      where.ticketCode = ticketCode.trim().toUpperCase()
     }
 
     const bookings = await db.booking.findMany({

@@ -10,7 +10,7 @@ const LINE_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || 'YOUR_CHANNEL
 const LINE_LOGIN_REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/` : ''
 
 export function StepLineLogin() {
-  const { setStep, setSelectedTimeSlot, setLineUser, setLineLoginSkipped, setIsLoading, isLoading } = useBookingStore()
+  const { setStep, setLineUser, setLineLoginSkipped, setIsLoading, isLoading } = useBookingStore()
 
   const handleLineLogin = useCallback(() => {
     setIsLoading(true)
