@@ -1,6 +1,6 @@
 'use client'
 
-import { apiUrl } from '@/lib/api'
+import { apiUrl, absoluteUrl } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
@@ -11,6 +11,7 @@ import { StepTimeSlot } from '@/components/booking/step-timeslot'
 import { StepSummary } from '@/components/booking/step-summary'
 import { StepConfirm } from '@/components/booking/step-confirm'
 import { StepSuccess } from '@/components/booking/step-success'
+import { StepLineLogin } from '@/components/booking/step-line-login'
 import { useBookingStore } from '@/store/booking-store'
 import type { BookingItem, RentalItem } from '@/store/booking-store'
 
@@ -80,24 +81,31 @@ export default function BookingPage() {
   const handleLineCallback = async (code: string) => {
     setIsLoading(true)
     try {
-      const res = await fetch(apiUrl('/api/line-auth'), {
+      // แลก code เป็น LINE User ID จริง (server-side) -> user record เดิม -> auto-fill ได้
+      const res = await fetch(apiUrl('/api/line-token'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lineUserId: 'demo_user_' + code.substring(0, 8),
-          lineDisplayName: 'ผู้ใช้ LINE',
-          linePictureUrl: null,
+          code,
+          // ต้องตรงกับ Callback URL ที่ลงทะเบียนใน LINE console เป๊ะ (รวม basePath เช่น /p19arena)
+          redirectUri: absoluteUrl('/'),
         }),
       })
 
       const user = await res.json()
-      setLineUser(user)
-      setStep(5)
+
+      if (res.ok && user && user.id) {
+        setLineUser(user)
+      } else {
+        console.error('LINE auth error:', user?.error || res.status)
+      }
+
+      setStep(2)
       sessionStorage.removeItem('line_login_state')
       sessionStorage.removeItem('line_login_intent')
     } catch (err) {
       console.error('LINE auth error:', err)
-      setStep(5)
+      setStep(2)
     } finally {
       setIsLoading(false)
     }
@@ -118,15 +126,16 @@ export default function BookingPage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4">
-        {step >= 1 && step <= 5 && <StepperHeader />}
+        {step >= 1 && step <= 6 && <StepperHeader />}
 
         <div className="mt-4">
-          {step === 1 && <StepDate />}
-          {step === 2 && <StepCourt />}
-          {step === 3 && <StepTimeSlot />}
-          {step === 4 && <StepSummary />}
-          {step === 5 && <StepConfirm />}
-          {step === 6 && <StepSuccess />}
+          {step === 1 && <StepLineLogin />}
+          {step === 2 && <StepDate />}
+          {step === 3 && <StepCourt />}
+          {step === 4 && <StepTimeSlot />}
+          {step === 5 && <StepSummary />}
+          {step === 6 && <StepConfirm />}
+          {step === 7 && <StepSuccess />}
         </div>
       </main>
 

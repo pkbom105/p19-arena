@@ -2,14 +2,16 @@
 
 import { apiUrl } from '@/lib/api'
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Trash2, CalendarDays, MapPin, Clock, ClipboardList, Wrench, Minus, QrCode, Loader2, CheckCircle2, Download, Dumbbell } from 'lucide-react'
+import { User, Phone, Plus, Trash2, CalendarDays, MapPin, Clock, ClipboardList, Wrench, Minus, QrCode, Loader2, CheckCircle2, Download, Dumbbell } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { useBookingStore } from '@/store/booking-store'
-import type { BookingItem, RentalItem } from '@/store/booking-store'
+import type { BookingItem, RentalItem, BookingData } from '@/store/booking-store'
 import { getItemPriceWithRules, type PriceRule } from '@/lib/price'
 import { generatePromptPayQR } from '@/components/qrcode'
 import { toPng } from 'html-to-image'
@@ -99,7 +101,7 @@ function BookingItemCard({ item, onRemove, rules }: { item: BookingItem; onRemov
 }
 
 export function StepSummary() {
-  const { bookingItems, removeBookingItem, setStep, goToStep, rentalSelections, setRentalSelections, updateRentalQuantity, priceRules, setPriceRules } = useBookingStore()
+  const { bookingItems, removeBookingItem, setStep, goToStep, rentalSelections, setRentalSelections, updateRentalQuantity, priceRules, setPriceRules, bookingForm, setBookingForm, lineUser } = useBookingStore()
   const [equipment, setEquipment] = useState<RentalItem[]>([])
   const [equipLoading, setEquipLoading] = useState(true)
   const [qrOpen, setQrOpen] = useState(false)
@@ -108,6 +110,25 @@ export function StepSummary() {
   const [paid, setPaid] = useState(false)
   const qrReceiptRef = useRef<HTMLDivElement>(null)
   const [qrDownloading, setQrDownloading] = useState(false)
+  const [bookerErrors, setBookerErrors] = useState<Record<string, string>>({})
+  const prefillDone = useRef(false)
+
+  // Auto-fill ข้อมูลผู้จอง (ชื่อ/เบอร์) จาก LINE ID เดิม / ข้อมูลเก่าที่เคยจอง
+  useEffect(() => {
+    if (prefillDone.current) return
+    const u = lineUser
+    if (!u || !u.id) return
+    const patch: Partial<BookingData> = {}
+    if (!bookingForm.playerName) {
+      const savedName = u.name || u.lineDisplayName || ''
+      if (savedName) patch.playerName = savedName
+    }
+    if (!bookingForm.playerPhone && u.phone) {
+      patch.playerPhone = u.phone
+    }
+    if (Object.keys(patch).length > 0) setBookingForm(patch)
+    prefillDone.current = true
+  }, [lineUser, bookingForm.playerName, bookingForm.playerPhone, setBookingForm])
 
   useEffect(() => {
     async function fetchEquipment() {
@@ -151,11 +172,25 @@ export function StepSummary() {
   const totalPrice = courtPrice + rentalPrice
 
   const handleAddMore = () => {
-    // Go to step 2 (court selection) keeping the date for multi-court booking
-    goToStep(2)
+    // Go to step 3 (court selection) keeping the date for multi-court booking
+    goToStep(3)
+  }
+
+  const validateBooker = () => {
+    const errs: Record<string, string> = {}
+    if (!bookingForm.playerName.trim()) errs.playerName = 'กรุณากรอกชื่อผู้จอง'
+    if (!bookingForm.playerPhone.trim()) {
+      errs.playerPhone = 'กรุณากรอกเบอร์โทร'
+    } else if (!/^\d{9,10}$/.test(bookingForm.playerPhone.replace(/[-\s]/g, ''))) {
+      errs.playerPhone = 'เบอร์โทรไม่ถูกต้อง (10 หลัก)'
+    }
+    setBookerErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
   const handleProceed = async () => {
+    // ใส่ชื่อผู้จอง + เบอร์โทร ให้ครบ ก่อนที่จะจ่ายเงินได้
+    if (!validateBooker()) return
     setQrOpen(true)
     setPaid(false)
     setQrLoading(true)
@@ -206,7 +241,7 @@ export function StepSummary() {
             <p className="text-muted-foreground">ยังไม่มีรายการจอง</p>
             <p className="text-sm text-muted-foreground mt-1">เลือกวัน เวลา และสนามที่ต้องการจอง</p>
           </div>
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => goToStep(1)}>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => goToStep(2)}>
             <Plus className="h-4 w-4 mr-2" />
             เลือกวันที่จอง
           </Button>
@@ -324,6 +359,54 @@ export function StepSummary() {
         </div>
       </div>
 
+      {/* ข้อมูลผู้จอง — ต้องกรอกให้ครบก่อนจ่ายเงิน */}
+      <Card className="border-emerald-200">
+        <CardHeader className="pb-2 pt-3 px-4">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <User className="h-4 w-4 text-emerald-600" />
+            ข้อมูลผู้จอง
+            <Badge className="bg-emerald-500 text-white text-[10px]">กรอกให้ครบก่อนจ่ายเงิน</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="summary-playerName" className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <User className="h-3.5 w-3.5" /> ชื่อผู้จอง <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="summary-playerName"
+              placeholder="กรอกชื่อผู้จอง"
+              value={bookingForm.playerName}
+              onChange={(e) => {
+                setBookingForm({ playerName: e.target.value })
+                if (bookerErrors.playerName) setBookerErrors((p) => ({ ...p, playerName: '' }))
+              }}
+              className={bookerErrors.playerName ? 'border-red-400' : ''}
+            />
+            {bookerErrors.playerName && <p className="text-xs text-red-500">{bookerErrors.playerName}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="summary-playerPhone" className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Phone className="h-3.5 w-3.5" /> เบอร์โทร <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="summary-playerPhone"
+              type="tel"
+              inputMode="tel"
+              placeholder="0XX-XXX-XXXX"
+              value={bookingForm.playerPhone}
+              onChange={(e) => {
+                setBookingForm({ playerPhone: e.target.value })
+                if (bookerErrors.playerPhone) setBookerErrors((p) => ({ ...p, playerPhone: '' }))
+              }}
+              className={bookerErrors.playerPhone ? 'border-red-400' : ''}
+            />
+            {bookerErrors.playerPhone && <p className="text-xs text-red-500">{bookerErrors.playerPhone}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Action buttons */}
       <div className="sticky bottom-0 bg-background/90 backdrop-blur-sm border-t pt-3 pb-1 -mx-4 px-4 mt-4 space-y-2">
         <Button
@@ -359,7 +442,7 @@ export function StepSummary() {
                 <div className="text-lg font-bold text-emerald-700">฿{formatPrice(totalPrice)}</div>
               </div>
               <DialogFooter>
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => { setQrOpen(false); setStep(5) }}>
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => { setQrOpen(false); setStep(6) }}>
                   ดำเนินการต่อ
                 </Button>
               </DialogFooter>

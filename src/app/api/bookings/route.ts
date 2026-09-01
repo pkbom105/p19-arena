@@ -104,6 +104,20 @@ export async function POST(request: NextRequest) {
       status: 'confirmed',
     })
 
+    // บันทึกข้อมูลผู้จอง (ชื่อ/เบอร์/อีเมล) ลง User เพื่อ auto-fill ครั้งถัดไปสำหรับ LINE ID เดิม
+    if (userId) {
+      await db.user
+        .update({
+          where: { id: userId },
+          data: {
+            name: playerName,
+            phone: playerPhone,
+            email: playerEmail || undefined,
+          },
+        })
+        .catch(() => {})
+    }
+
     return NextResponse.json(booking, { status: 201 })
   } catch (error) {
     console.error('Error creating booking:', error)

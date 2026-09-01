@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Search, Loader2, CalendarX2, Phone, Ticket } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
 import { BookingTicket, type TicketBooking } from '@/components/booking/booking-ticket'
+import { TicketQrScanner } from '@/components/booking/ticket-qr-scanner'
 import { Button } from '@/components/ui/button'
 
 export default function CheckBookingPage() {
@@ -19,16 +20,17 @@ export default function CheckBookingPage() {
   // รหัสตั๋ว: บังคับเป็นตัวพิมพ์ใหญ่เสมอ (พิมพ์เล็ก → เปลี่ยนเป็นพิมพ์ใหญ่อัตโนมัติ)
   const code = codeInput.trim().toUpperCase()
 
-  const handleLookup = async () => {
+  const handleLookup = async (customCode?: string) => {
     const phoneQ = phone.trim()
-    if (loading || (!phoneQ && !code)) return
+    const effCode = (customCode ?? code).trim().toUpperCase()
+    if (loading || (!phoneQ && !effCode)) return
     // ถ้ากรอกทั้งสองช่อง ใช้รหัสตั๋ว (แม่นที่สุด เพราะเป็น unique)
-    const byCode = code.length > 0
+    const byCode = effCode.length > 0
     setSearchedByCode(byCode)
     setLoading(true)
     try {
       const qs = byCode
-        ? `ticketCode=${encodeURIComponent(code)}`
+        ? `ticketCode=${encodeURIComponent(effCode)}`
         : `playerPhone=${encodeURIComponent(phoneQ)}`
       const res = await fetch(apiUrl(`/api/my-bookings?${qs}`))
       const data = await res.json()
@@ -39,6 +41,13 @@ export default function CheckBookingPage() {
       setSearched(true)
       setLoading(false)
     }
+  }
+
+  const handleQrScan = (scannedCode: string) => {
+    setCodeInput(scannedCode)
+    setSearched(false)
+    setBookings([])
+    handleLookup(scannedCode)
   }
 
   return (
@@ -93,15 +102,17 @@ export default function CheckBookingPage() {
 
         <div className="space-y-2">
           <Button
-            onClick={handleLookup}
+            onClick={() => handleLookup()}
             disabled={loading || (!phone.trim() && !code)}
             className="w-full bg-emerald-600 hover:bg-emerald-700"
           >
             {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
             ค้นหา
           </Button>
+          <TicketQrScanner onScan={handleQrScan} />
           <p className="text-center text-xs text-muted-foreground">
-            กรอกอย่างใดอย่างหนึ่ง — ถ้ากรอกทั้งสองช่อง ระบบจะค้นหาด้วยรหัสตั๋ว
+            กรอกอย่างใดอย่างหนึ่ง — ถ้ากรอกทั้งสองช่อง ระบบจะค้นหาด้วยรหัสตั๋ว<br />
+            หรือใช้ปุ่มสแกน QR เพื่อถ่ายภาพ QR บนตั๋วแล้วค้นหาให้อัตโนมัติ
           </p>
         </div>
 

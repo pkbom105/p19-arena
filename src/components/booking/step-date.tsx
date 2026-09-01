@@ -27,7 +27,7 @@ export function StepDate() {
 
   useEffect(() => {
     if (selectedDate) {
-      setStep(2)
+      setStep(3)
     }
   }, [selectedDate, setStep])
 

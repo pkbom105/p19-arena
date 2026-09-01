@@ -1,13 +1,15 @@
 'use client'
 
 import { useCallback } from 'react'
-import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react'
+import { MessageCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { absoluteUrl } from '@/lib/api'
 import { useBookingStore } from '@/store/booking-store'
 
 const LINE_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || 'YOUR_CHANNEL_ID'
-const LINE_LOGIN_REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/` : ''
+// redirect_uri ต้องตรง Callback URL ใน LINE console เป๊ะ (รวม basePath เช่น https://p19avenue.com/p19arena/)
+const LINE_LOGIN_REDIRECT_URI = absoluteUrl('/')
 
 export function StepLineLogin() {
   const { setStep, setLineUser, setLineLoginSkipped, setIsLoading, isLoading } = useBookingStore()
@@ -32,20 +34,12 @@ export function StepLineLogin() {
 
   const handleSkipLogin = async () => {
     setLineLoginSkipped(true)
-    setStep(4)
+    setStep(2)
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setStep(4)}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
         <h2 className="text-lg font-semibold">เข้าสู่ระบบด้วย LINE</h2>
       </div>
 

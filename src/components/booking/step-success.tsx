@@ -42,6 +42,7 @@ export function StepSuccess() {
     clearTimeSlots,
     setLineLoginSkipped,
     clearAllBookingItems,
+    lineUser,
   } = useBookingStore()
   const [showLookup, setShowLookup] = useState(false)
   const [lookupPhone, setLookupPhone] = useState('')
@@ -58,7 +59,8 @@ export function StepSuccess() {
     clearTimeSlots()
     setLineLoginSkipped(false)
     clearAllBookingItems()
-    setStep(1)
+    // Already logged in via LINE → skip the login gate (step 1) and go to date selection
+    setStep(lineUser ? 2 : 1)
   }
 
   const handleLookup = async () => {

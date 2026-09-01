@@ -156,10 +156,15 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       clear.lineLoginSkipped = false
     }
     if (targetStep <= 2) {
+      clear.selectedDate = ''
       clear.selectedCourt = null
       clear.selectedTimeSlots = []
     }
     if (targetStep <= 3) {
+      clear.selectedCourt = null
+      clear.selectedTimeSlots = []
+    }
+    if (targetStep <= 4) {
       clear.selectedTimeSlots = []
     }
     set(clear)

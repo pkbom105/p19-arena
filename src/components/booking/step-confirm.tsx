@@ -3,14 +3,11 @@
 import { apiUrl } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 import {
-  ArrowLeft, User, Phone, Mail, MessageSquare, CalendarDays,
+  ArrowLeft, User, Mail, MessageSquare, CalendarDays,
   MapPin, Clock, UploadCloud, X, Wrench,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { useBookingStore } from '@/store/booking-store'
@@ -45,7 +42,6 @@ export function StepConfirm() {
     bookingItems,
     rentalSelections,
     bookingForm,
-    setBookingForm,
     setStep,
     goToStep,
     setIsLoading,
@@ -55,6 +51,7 @@ export function StepConfirm() {
     setSlip,
     priceRules,
     setPriceRules,
+    lineUser,
   } = useBookingStore()
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -83,14 +80,8 @@ export function StepConfirm() {
     return sum
   }, 0)
 
-  const validate = () => {
+const validate = () => {
     const errs: Record<string, string> = {}
-    if (!bookingForm.playerName.trim()) errs.playerName = 'กรุณากรอกชื่อ'
-    if (!bookingForm.playerPhone.trim()) errs.playerPhone = 'กรุณากรอกเบอร์โทร'
-    else if (!/^\d{9,10}$/.test(bookingForm.playerPhone.replace(/[-\s]/g, '')))
-      errs.playerPhone = 'เบอร์โทรไม่ถูกต้อง'
-    if (bookingForm.playerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingForm.playerEmail))
-      errs.playerEmail = 'อีเมลไม่ถูกต้อง'
     if (!slip) errs.slip = 'กรุณาอัปโหลดสลิปการชำระเงิน'
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -158,6 +149,7 @@ export function StepConfirm() {
               playerPhone: bookingForm.playerPhone,
               playerEmail: bookingForm.playerEmail || undefined,
               note: bookingForm.note || undefined,
+              userId: lineUser?.id || undefined,
               racketCount: totalRackets,
               slipDataUrl: slip?.dataUrl || undefined,
               slipName: slip?.name || undefined,
@@ -179,7 +171,7 @@ export function StepConfirm() {
 
     if (results.length > 0) {
       setSubmittedBookings(results)
-      setStep(6)
+      setStep(7)
       toast.success(`จองสำเร็จ ${results.length} รายการ!`)
     }
     setIsLoading(false)
@@ -190,7 +182,7 @@ export function StepConfirm() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goToStep(4)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goToStep(5)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h2 className="text-lg font-semibold">ยืนยันการจอง</h2>
@@ -200,7 +192,7 @@ export function StepConfirm() {
       <Card className="border-emerald-200 bg-emerald-50/50">
         <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm flex items-center justify-between">
-            <span>รายการจองทั้งหมด</span>
+            <span>บัตรการจอง — รายการทั้งหมด</span>
             <Badge className="bg-emerald-600 text-[11px]">{totalSlots} ชม.</Badge>
           </CardTitle>
         </CardHeader>
@@ -283,7 +275,8 @@ export function StepConfirm() {
               <UploadCloud className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <h3 className="font-medium text-sm">อัปโหลดสลิปการชำระเงิน</h3>
+              <h3 className="font-medium text-sm leading-snug">อัปโหลดสลิปการชำระเงิน</h3>
+              <h3 className="font-medium text-[13px] text-emerald-700 mt-1">เพื่อยืนยันการจอง และ ออกใบจองสนาม</h3>
               <p className="text-[11px] text-muted-foreground">รองรับไฟล์ .jpg หรือ .png เท่านั้น ขนาดไม่เกิน 300kB</p>
             </div>
           </div>
@@ -333,71 +326,39 @@ export function StepConfirm() {
 
       <Separator />
 
-      {/* Player info form */}
-      <div className="space-y-4">
-        <h3 className="font-medium">ข้อมูลผู้จอง</h3>
-
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="playerName" className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" /> ชื่อ-นามสกุล <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="playerName"
-              placeholder="กรอกชื่อ-นามสกุล"
-              value={bookingForm.playerName}
-              onChange={(e) => setBookingForm({ playerName: e.target.value })}
-              className={errors.playerName ? 'border-red-400' : ''}
-            />
-            {errors.playerName && <p className="text-xs text-red-500">{errors.playerName}</p>}
+      {/* ข้อมูลผู้จอง — จากขั้นสรุป (step 5) แสดงเป็นบัตร */}
+      <Card className="border-emerald-200 bg-emerald-50/40">
+        <CardContent className="p-4 space-y-2.5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+              <User className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] text-muted-foreground">ชื่อผู้จอง</div>
+              <div className="font-semibold">{bookingForm.playerName || '-'}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-[11px] text-muted-foreground">เบอร์โทร</div>
+              <div className="font-medium font-mono">{bookingForm.playerPhone || '-'}</div>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="playerPhone" className="flex items-center gap-1.5">
-              <Phone className="h-3.5 w-3.5" /> เบอร์โทรศัพท์ <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="playerPhone"
-              placeholder="0XX-XXX-XXXX"
-              value={bookingForm.playerPhone}
-              onChange={(e) => setBookingForm({ playerPhone: e.target.value })}
-              className={errors.playerPhone ? 'border-red-400' : ''}
-            />
-            {errors.playerPhone && <p className="text-xs text-red-500">{errors.playerPhone}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="playerEmail" className="flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5" /> อีเมล (ไม่จำเป็น)
-            </Label>
-            <Input
-              id="playerEmail"
-              type="email"
-              placeholder="example@email.com"
-              value={bookingForm.playerEmail}
-              onChange={(e) => setBookingForm({ playerEmail: e.target.value })}
-              className={errors.playerEmail ? 'border-red-400' : ''}
-            />
-            {errors.playerEmail && <p className="text-xs text-red-500">{errors.playerEmail}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="note" className="flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" /> หมายเหตุ (ไม่จำเป็น)
-            </Label>
-            <Textarea
-              id="note"
-              placeholder="หมายเหตุเพิ่มเติม เช่น ต้องการเช่าอุปกรณ์"
-              value={bookingForm.note}
-              onChange={(e) => setBookingForm({ note: e.target.value })}
-              rows={2}
-            />
-          </div>
-        </div>
-      </div>
+          {bookingForm.playerEmail && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              <span className="break-all">{bookingForm.playerEmail}</span>
+            </div>
+          )}
+          {bookingForm.note && (
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span className="break-words">{bookingForm.note}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="flex gap-3 pt-2">
-        <Button variant="outline" className="flex-1" onClick={() => goToStep(4)}>
+        <Button variant="outline" className="flex-1" onClick={() => goToStep(5)}>
           ย้อนกลับ
         </Button>
         <Button

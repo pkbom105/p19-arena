@@ -4,6 +4,7 @@ import { Check } from 'lucide-react'
 import { useBookingStore } from '@/store/booking-store'
 
 const STEPS = [
+  { label: 'เข้าสู่ระบบ LINE', short: 'LINE' },
   { label: 'เลือกวัน', short: 'วัน' },
   { label: 'เลือกสนาม', short: 'สนาม' },
   { label: 'เลือกเวลา', short: 'เวลา' },
@@ -13,7 +14,7 @@ const STEPS = [
 
 export function StepperHeader() {
   const { step, goToStep } = useBookingStore()
-  const currentStep = Math.min(step, 5)
+  const currentStep = Math.min(step, 6)
 
   const handleClick = (targetStep: number) => {
     if (targetStep >= currentStep) return

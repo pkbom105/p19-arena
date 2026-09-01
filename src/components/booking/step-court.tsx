@@ -50,10 +50,10 @@ export function StepCourt() {
     fetchBookings()
   }, [selectedDate])
 
-  // Auto-advance to step 3 when court is selected
+  // Auto-advance to step 4 when court is selected
   useEffect(() => {
     if (selectedCourt) {
-      setStep(3)
+      setStep(4)
     }
   }, [selectedCourt, setStep])
 
@@ -83,7 +83,7 @@ export function StepCourt() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goToStep(1)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goToStep(2)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <MapPin className="h-5 w-5 text-emerald-600" />
