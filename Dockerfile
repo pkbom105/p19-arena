@@ -16,8 +16,9 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && r
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# subpath ของแอป เช่น https://p19avenue.com/p19arena (เปลี่ยนได้ผ่าน --build-arg)
-ARG NEXT_PUBLIC_BASE_PATH=/p19arena
+# subpath ของแอป — default = ราก `/` (สะอาด URL ที่ https://p19arena.p19avenue.com)
+# ถ้าต้องการรันใต้ subpath เช่น /p19arena: docker build --build-arg NEXT_PUBLIC_BASE_PATH=/p19arena .
+ARG NEXT_PUBLIC_BASE_PATH=/
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 # NEXT_PUBLIC_* ถูก inline ใน client bundle ตอน build — ต้องแปะตรงนี้ ไม่งั้น LINE login ใช้ค่า fallback
 ARG NEXT_PUBLIC_LINE_CHANNEL_ID=2011357077
