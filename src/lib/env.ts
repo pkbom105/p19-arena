@@ -54,8 +54,12 @@ export function validateEnv(): { errors: EnvIssue[]; warnings: EnvIssue[] } {
   return results
 }
 
-/** throw ถ้ามี required env ขาด/ผิด — เรียกตอน startup */
+/** throw ถ้ามี required env ขาด/ผิด — เรียกตอน startup (server boot เท่านั้น) */
 export function assertEnv(): void {
+  // ข้ามช่วง next build: "Collecting page data" จะ import route modules ทั้งหมด
+  // ทั้งที่ builder stage ยังไม่มี env runtime (DATABASE_URL ถูก set เฉพาะตอน runtime ใน runner)
+  // — throw ตรงนี้ตอน build จะทำ docker build พังโดยไม่จำเป็น
+  if (process.env.NEXT_PHASE === 'phase-production-build') return
   const { errors, warnings } = validateEnv()
   for (const w of warnings) {
     console.warn(`⚠️  ENV WARN [${w.key}]: ${w.problem}`)
