@@ -5,7 +5,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Plus, Pencil, Trash2, Save, X, Dumbbell,
-  MapPin, Wrench, Loader2, Check, Tag, Clock, CalendarDays,
+  MapPin, Wrench, Loader2, Check, Tag, Clock, CalendarDays, MessageCircle,
+  LayoutDashboard, CalendarClock, Users, Settings as SettingsIcon, TrendingUp, Wallet, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,7 @@ interface TimeSlotItem {
 
 interface BookingRow {
   id: string
+  createdAt?: string
   ticketCode?: string | null
   courtId: string
   timeSlotId: string
@@ -76,6 +78,32 @@ interface BookingRow {
   racketCount: number
   court: { id: string; name: string }
   timeSlot: { id: string; startTime: string; endTime: string }
+}
+
+interface LineMember {
+  id: string
+  lineUserId: string | null
+  lineDisplayName: string | null
+  linePictureUrl: string | null
+  name: string | null
+  phone: string | null
+  createdAt: string
+  _count: { bookings: number }
+}
+
+interface Stats {
+  totals: { bookings: number; courts: number; equipment: number; priceRules: number; users: number }
+  status: { pending: number; confirmed: number; cancelled: number }
+  today: {
+    date: string
+    count: number
+    activeCount: number
+    revenueEstimate: number
+    byCourt: { courtId: string; name: string; count: number; revenueEstimate: number }[]
+    bookings: { id: string; bookingDate: string; status: string; playerName: string; court?: { name: string }; timeSlot?: { startTime: string; endTime: string } }[]
+  }
+  upcoming: number
+  recent: { id: string; bookingDate: string; status: string; playerName: string; court?: { name: string }; timeSlot?: { startTime: string; endTime: string } }[]
 }
 
 const DAY_OPTIONS = [
@@ -103,8 +131,19 @@ const COURT_COLORS = [
 ]
 const COURT_ICONS = ['1', '2', '3', '4', '5', '6']
 
-export default function SettingsPage() {
+const SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'court', label: 'Court', icon: MapPin },
+  { id: 'equipment', label: 'Equipment', icon: Wrench },
+  { id: 'booking', label: 'Booking Tickets', icon: CalendarDays },
+  { id: 'line', label: 'LINE Credential', icon: MessageCircle },
+] as const
+
+type SectionId = (typeof SECTIONS)[number]['id']
+
+export default function DashboardPage() {
   const router = useRouter()
+  const [section, setSection] = useState<SectionId>('overview')
   const [courts, setCourts] = useState<Court[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [priceRules, setPriceRules] = useState<PriceRule[]>([])
@@ -112,6 +151,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [stats, setStats] = useState<Stats | null>(null)
 
   // Edit states
   const [editingCourt, setEditingCourt] = useState<Court | null>(null)
@@ -122,17 +162,21 @@ export default function SettingsPage() {
   const [showNewPriceRule, setShowNewPriceRule] = useState(false)
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [editingBooking, setEditingBooking] = useState<BookingRow | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lineMembers, setLineMembers] = useState<LineMember[]>([])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [courtsRes, equipRes, settingsRes, rulesRes, slotsRes, bookingsRes] = await Promise.all([
+      const [courtsRes, equipRes, settingsRes, rulesRes, slotsRes, bookingsRes, statsRes, usersRes] = await Promise.all([
         fetch(apiUrl('/api/courts')),
         fetch(apiUrl('/api/equipment')),
         fetch(apiUrl('/api/settings')),
         fetch(apiUrl('/api/pricerules')),
         fetch(apiUrl('/api/timeslots?all=1')),
         fetch(apiUrl('/api/bookings')),
+        fetch(apiUrl('/api/stats')),
+        fetch(apiUrl('/api/users')),
       ])
       const courtsData = await courtsRes.json()
       const equipData = await equipRes.json()
@@ -140,12 +184,16 @@ export default function SettingsPage() {
       const rulesData = await rulesRes.json()
       const slotsData = await slotsRes.json()
       const bookingsData = await bookingsRes.json()
+      const statsData = await statsRes.json()
+      const usersData = await usersRes.json()
       setCourts(courtsData)
       setEquipment(equipData)
       setSettings(settingsData)
       if (Array.isArray(rulesData)) setPriceRules(rulesData)
       if (Array.isArray(slotsData)) setTimeSlots(slotsData)
       if (Array.isArray(bookingsData)) setBookings(bookingsData)
+      if (statsData && !statsData.error) setStats(statsData)
+      if (Array.isArray(usersData)) setLineMembers(usersData)
     } catch (err) {
       console.error('Failed to fetch settings data', err)
     } finally {
@@ -304,6 +352,39 @@ export default function SettingsPage() {
     }
   }
 
+// LINE Login — connection status + save both fields
+  const lineConnected = !!(
+    (settings.line_channel_id && settings.line_channel_id.trim()) &&
+    (settings.line_channel_secret && settings.line_channel_secret.trim())
+  )
+
+  const handleSaveLine = async () => {
+    try {
+      await Promise.all([
+        fetch(apiUrl('/api/settings'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'line_channel_id', value: (settings.line_channel_id || '').trim() }) }),
+        fetch(apiUrl('/api/settings'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'line_channel_secret', value: settings.line_channel_secret || '' }) }),
+      ])
+      toast.success('LINE settings saved')
+      fetchData()
+    } catch {
+      toast.error('LINE save failed')
+    }
+  }
+
+  // รีเฟรชรายการจองเฉพาะส่วน (ไม่โหลดทั้งหน้าใหม่)
+  const refreshBookings = async () => {
+    try {
+      setRefreshing(true)
+      const res = await fetch(apiUrl('/api/bookings'))
+      const data = await res.json()
+      if (Array.isArray(data)) setBookings(data)
+      toast.success('อัปเดตรายการจองแล้ว')
+    } catch {
+      toast.error('รีเฟรชไม่สำเร็จ')
+    } finally {
+      setRefreshing(false)
+    }
+  }
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -314,32 +395,146 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-background">
-      {/* Header */}
+      {/* Top bar */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <Wrench className="h-5 w-5 text-emerald-600" />
-            <h1 className="font-bold text-base">ตั้งค่าระบบ</h1>
-          </div>
+        <div className="flex items-center gap-3 px-4 h-14">
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.push('/')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <LayoutDashboard className="h-6 w-6 text-emerald-600" />
+          <h1 className="font-bold text-lg">Dashboard — P19 Arena</h1>
+          <Badge variant="secondary" className="text-xs ml-auto">Admin</Badge>
         </div>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4">
-        <Tabs defaultValue="court" className="w-full">
-          <TabsList className="w-full mb-4 grid grid-cols-3">
-            <TabsTrigger value="court" className="flex items-center justify-center gap-1.5">
-              <MapPin className="h-4 w-4" /> สนาม
+      <div className="flex flex-1">
+      {/* Sidebar — standard fixed size */}
+      <aside className="w-56 shrink-0 bg-white border-r hidden lg:flex flex-col gap-1 px-3 py-4 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+        <a
+          href="/"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+        >
+          <Dumbbell className="h-4 w-4" /> Home / Booking
+        </a>
+        <a
+          href="/settings"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+        >
+          <SettingsIcon className="h-4 w-4" /> Settings
+        </a>
+        <Separator className="my-2" />
+        <div className="px-3 pb-1 text-[11px] font-semibold text-muted-foreground">DASHBOARD</div>
+        {SECTIONS.map(({ id, label, icon: Icon }) => {
+          const active = section === id
+          return (
+            <button
+              key={id}
+              onClick={() => setSection(id)}
+              className={
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors " +
+                (active
+                  ? "bg-emerald-500 text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-muted")
+              }
+            >
+              <Icon className="h-4 w-4" />
+              <span>{label}</span>
+            </button>
+          )
+        })}
+      </aside>
+
+      <main className="flex-1 min-w-0 px-4 py-5 lg:pl-4">
+        <Tabs value={section} onValueChange={(v) => setSection(v as SectionId)} className="w-full">
+          {/* Sidebar nav: vertical on desktop, horizontal scroll on mobile */}
+          <TabsList className="w-full lg:hidden mb-4 grid grid-cols-5">
+            <TabsTrigger value="overview" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
+              <LayoutDashboard className="h-4 w-4" /> <span className="font-medium">Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="equipment" className="flex items-center justify-center gap-1.5">
-              <Wrench className="h-4 w-4" /> อุปกรณ์
+            <TabsTrigger value="court" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
+              <MapPin className="h-4 w-4" /> <span className="font-medium">Court</span>
             </TabsTrigger>
-            <TabsTrigger value="booking" className="flex items-center justify-center gap-1.5">
-              <Clock className="h-4 w-4" /> การจอง
+            <TabsTrigger value="equipment" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
+              <Wrench className="h-4 w-4" /> <span className="font-medium">Equipment</span>
+            </TabsTrigger>
+            <TabsTrigger value="booking" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
+              <Clock className="h-4 w-4" /> <span className="font-medium">Tickets</span>
+            </TabsTrigger>
+            <TabsTrigger value="line" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
+              <MessageCircle className="h-4 w-4" /> <span className="font-medium">LINE</span>
             </TabsTrigger>
           </TabsList>
+
+
+          <TabsContent value="overview" className="space-y-6">
+        {/* Monitoring Overview */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <LayoutDashboard className="h-4 w-4 text-emerald-600" />
+              Monitoring — system overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <StatCard label="Today bookings" value={stats?.today.count ?? 0} icon={CalendarDays} color="text-emerald-600" />
+              <StatCard label="Active today" value={stats?.today.activeCount ?? 0} icon={CalendarClock} color="text-emerald-600" />
+              <StatCard label="Upcoming" value={stats?.upcoming ?? 0} icon={CalendarClock} color="text-sky-600" />
+              <StatCard label="Pending" value={stats?.status.pending ?? 0} icon={Clock} color="text-amber-600" />
+              <StatCard label="Confirmed" value={stats?.status.confirmed ?? 0} icon={Check} color="text-emerald-600" />
+              <StatCard label="Cancelled" value={stats?.status.cancelled ?? 0} icon={X} color="text-red-500" />
+              <StatCard label="Total bookings" value={stats?.totals.bookings ?? 0} icon={CalendarDays} color="text-slate-700" />
+              <StatCard label="LINE users" value={stats?.totals.users ?? 0} icon={Users} color="text-sky-600" />
+              <StatCard label="Revenue today (est.)" value={stats?.today.revenueEstimate ?? 0} icon={Wallet} prefix="฿" color="text-emerald-700" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-emerald-600" />
+              Today per court
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(!stats || stats.today.byCourt.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-4">No bookings today yet</p>
+            )}
+            {stats && stats.today.byCourt.map((c) => (
+              <div key={c.courtId} className="flex items-center justify-between text-sm">
+                <span className="font-medium">{c.name}</span>
+                <Badge variant="secondary" className="text-xs">{c.count} booking{c.count === 1 ? '' : 's'}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-emerald-600" />
+              Recent bookings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(!stats || stats.recent.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-4">No recent bookings</p>
+            )}
+            {stats && stats.recent.map((b) => (
+              <div key={b.id} className="flex items-center justify-between text-sm p-2.5 bg-muted/30 rounded-lg">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate">{b.playerName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {b.bookingDate} · {b.court?.name ?? '-'} · {b.timeSlot?.startTime ?? ''}-{b.timeSlot?.endTime ?? ''}
+                  </div>
+                </div>
+                <Badge variant="outline" className="shrink-0">{b.status}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+          </TabsContent>
 
           <TabsContent value="court" className="space-y-6">
         {/* Arena Settings */}
@@ -541,20 +736,35 @@ export default function SettingsPage() {
                 <CalendarDays className="h-4 w-4 text-emerald-600" />
                 การจองของลูกค้า
               </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={refreshBookings}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                รีเฟรช
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              รายการจองที่ลูกค้าได้จองไว้ และบันทึกแล้ว — แก้ไขวัน/เวลา/สนาม/ข้อมูล หรือยกเลิกได้
+              รายการจองที่ลูกค้าได้จองไว้ และบันทึกแล้ว — แก้ไขวัน/เวลา/สนาม/ข้อมูล หรือยกเลิกได้ (เรียงวันที่ล่าสุด→อนาคต ซ้าย→ขวา)
             </p>
 
             {bookings.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">ยังไม่มีการจอง</p>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-            {bookings.map((b) => (
-              <div key={b.id} className={editingBooking?.id === b.id ? 'md:col-span-2' : ''}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
+            {[...bookings]
+              .sort((a, b) =>
+                (b.bookingDate ?? '').localeCompare(a.bookingDate ?? '') ||
+                (b.timeSlot?.startTime ?? '').localeCompare(a.timeSlot?.startTime ?? '')
+              )
+              .map((b) => (
+              <div key={b.id} className={editingBooking?.id === b.id ? 'sm:col-span-2 xl:col-span-4' : ''}>
                 {editingBooking?.id === b.id ? (
                   <BookingForm
                     initial={b}
@@ -574,6 +784,124 @@ export default function SettingsPage() {
                 )}
               </div>
             ))}
+            </div>
+          </CardContent>
+        </Card>
+
+          </TabsContent>
+
+          <TabsContent value="line" className="space-y-6">
+        {/* LINE Credential settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-sky-600" />
+                LINE Credential
+              </CardTitle>
+              <Badge
+                variant="outline"
+                className={lineConnected
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : 'bg-muted text-muted-foreground'}
+              >
+                {lineConnected ? '● Connected' : '○ Not configured'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              ตั้งค่า LINE Login สำหรับการเข้าสู่ระบบด้วย LINE (Channel ID + Channel Secret จาก LINE Developers Console)
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">LINE Channel ID (NEXT_PUBLIC_LINE_CHANNEL_ID)</Label>
+              <Input
+                value={settings.line_channel_id || ''}
+                onChange={(e) => setSettings(prev => ({ ...prev, line_channel_id: e.target.value }))}
+                placeholder="2011357077"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">LINE Channel Secret (LINE_CHANNEL_SECRET)</Label>
+              <Input
+                type="password"
+                value={settings.line_channel_secret || ''}
+                onChange={(e) => setSettings(prev => ({ ...prev, line_channel_secret: e.target.value }))}
+                placeholder="••••••••••••••••"
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                size="sm"
+                className="bg-sky-600 hover:bg-sky-700 h-8 text-xs"
+                onClick={handleSaveLine}
+                disabled={!settings.line_channel_id?.trim()}
+              >
+                <Save className="h-3 w-3 mr-1" /> Save LINE
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {lineConnected ? 'Line login enabled' : 'กรอก Channel ID/Secret แล้วกด Save'}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Channel Secret แสดงเป็น * เมื่อบันทึกแล้ว — ถ้าไม่แก้จะไม่ทับค่าเดิม (save button)
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* LINE Members — สมาชิกที่เข้าสู่ระบบด้วย LINE */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4 text-sky-600" />
+                สมาชิก LINE Login
+              </CardTitle>
+              <Badge variant="outline" className="text-xs">
+                {lineMembers.length} คน
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              รายชื่อสมาชิกที่เข้าสู่ระบบด้วย LINE — เรียงจากคนล่าสุด
+            </p>
+
+            {lineMembers.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">ยังไม่มีสมาชิก LINE Login</p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {lineMembers.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 rounded-lg border p-3">
+                  {m.linePictureUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={m.linePictureUrl}
+                      alt={m.lineDisplayName || m.name || 'LINE user'}
+                      className="h-10 w-10 rounded-full object-cover border shrink-0"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-semibold shrink-0">
+                      {(m.lineDisplayName || m.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {m.lineDisplayName || m.name || 'ไม่ทราบชื่อ'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {m.phone || m.lineUserId || '—'}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-medium text-emerald-700">{m._count.bookings} จอง</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(m.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -652,9 +980,10 @@ export default function SettingsPage() {
 
           </TabsContent>
         </Tabs>
-
-        <div className="pb-8" />
       </main>
+      </div> {/* /flex wrapper */}
+
+      <div className="pb-8" />
     </div>
   )
 }
@@ -1024,6 +1353,27 @@ function BookingForm({ initial, courts, timeSlots, onSave, onCancel, saving }: {
         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>
           <X className="h-3 w-3 mr-1" /> ยกเลิก
         </Button>
+      </div>
+    </div>
+  )
+}
+
+/* Stat Card Component */
+function StatCard({ label, value, icon: Icon, color, prefix }: {
+  label: string
+  value: number
+  icon: React.ComponentType<{ className?: string }>
+  color?: string
+  prefix?: string
+}) {
+  return (
+    <div className="rounded-xl border bg-background p-3.5">
+      <div className="flex items-center gap-2 text-muted-foreground text-xs">
+        <Icon className={`h-4 w-4 ${color ?? 'text-muted-foreground'}`} />
+        <span className="truncate">{label}</span>
+      </div>
+      <div className={`mt-1 text-2xl font-bold ${color ?? ''}`}>
+        {prefix}{value.toLocaleString()}
       </div>
     </div>
   )

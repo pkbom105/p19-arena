@@ -24,7 +24,9 @@ function decodeIdTokenPayload(idToken: string): LineIdTokenClaims {
  */
 export async function POST(request: NextRequest) {
   try {
-    const code = await request.json<{ code?: string; redirectUri?: string }>().catch(() => ({}))
+    const body: { code?: string; redirectUri?: string } = await request.json().catch(() => ({}))
+    const code = body.code ?? ''
+    const redirectUri = body.redirectUri ?? ''
 
     if (!code || !redirectUri) {
       return NextResponse.json({ error: 'code and redirectUri are required' }, { status: 400 })

@@ -48,6 +48,18 @@ export async function POST() {
       where: { name: { startsWith: 'บอล' } },
     })
 
+    // Default price rules (idempotent — สร้างเฉพาะเมื่อยังไม่มีกฎราคาเลย)
+    // จันทร์-ศุกร์ 07:00-22:00 = 300 ทุกช่วง / เสาร์-อาทิตย์ 07:00-22:00 = 400 ทุกช่วง
+    const priceRuleCount = await db.priceRule.count()
+    if (priceRuleCount === 0) {
+      await db.priceRule.createMany({
+        data: [
+          { name: 'จันทร์ - ศุกร์ (Mon-Fri)', days: '1,2,3,4,5', startTime: '07:00', endTime: '22:00', price: 300, sortOrder: 1 },
+          { name: 'เสาร์ - อาทิตย์ (Sat-Sun)', days: '0,6', startTime: '07:00', endTime: '22:00', price: 400, sortOrder: 2 },
+        ],
+      })
+    }
+
     await db.settings.upsert({
       where: { key: 'arena_name' },
       update: {},

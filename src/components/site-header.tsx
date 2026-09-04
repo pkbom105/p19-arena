@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Dumbbell, Phone, Settings, CalendarPlus, Search } from 'lucide-react'
+import { Dumbbell, Phone, Settings, CalendarPlus, Search, LayoutDashboard } from 'lucide-react'
 
 const MENU_ITEMS = [
   { href: '/', label: 'จองสนาม', icon: CalendarPlus },
@@ -27,6 +27,13 @@ export function SiteHeader() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard"
+              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Dashboard"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+            </Link>
             <Link
               href="/settings"
               className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

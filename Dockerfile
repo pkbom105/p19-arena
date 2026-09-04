@@ -48,5 +48,9 @@ RUN mkdir -p /app/db && chown nextjs:nodejs /app/db
 VOLUME /app/db
 USER nextjs
 EXPOSE 3000
+# Container health monitoring — ตรวจ /api/health (รวม db check) ทุก 30 วิ
+# ล้มเหลว 3 ครั้งติด = unhealthy (ดูได้ด้วย docker ps / docker inspect)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 # สร้าง/อัปเดตตารางก่อนเปิด server (ไม่ลบข้อมูลเดิม) แล้วรัน standalone server
 CMD ["sh", "-c", "prisma db push --skip-generate && node server.js"]

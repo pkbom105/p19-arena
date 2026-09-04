@@ -98,3 +98,15 @@ model PriceRule {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
+
+// Error tracking / crash reporting (self-hosted) — บันทึก error ฝั่ง server + client
+model ErrorLog {
+  id        String   @id @default(cuid())
+  level     String   @default("error") // error | unhandledRejection | client | crash
+  message   String
+  stack     String?
+  path      String?  // URL/path ที่เกิด error
+  userAgent String?
+  source    String   @default("server") // server | client | middleware
+  createdAt DateTime @default(now())
+}

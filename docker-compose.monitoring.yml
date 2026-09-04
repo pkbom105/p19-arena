@@ -1,0 +1,51 @@
+services:
+  p19-arena:
+    image: p19-arena:latest
+    container_name: p19-arena
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - p19-db:/app/db
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/db/data.db
+    # health อยู่ใน Dockerfile HEALTHCHECK แล้ว (node fetch /api/health)
+
+  # ---- Server Health & Container Monitoring (backend) ----
+  # ขึ้นชุดเฝ้าดู: เก็บ metrics ของ host + คอนเทนเนอร์ทั้งเครื่อง (รวม p19-arena, n8n)
+  # ดูได้ที่ http://<vps>:8081/metrics (Prometheus format) / หน้า web :8081
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: p19-node-exporter
+    restart: unless-stopped
+    pid: host
+    ports:
+      - "127.0.0.1:9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: p19-cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+
+volumes:
+  p19-db:
