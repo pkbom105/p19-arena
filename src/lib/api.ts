@@ -16,3 +16,14 @@ export const absoluteUrl = (path: string) =>
   typeof window !== 'undefined'
     ? `${window.location.origin}${BASE_PATH}${path}`
     : `${BASE_PATH}${path}`
+
+/**
+ * redirect_uri สำหรับ LINE Login — ต้องเป็น URL เดียวกัน "ทุกเครื่อง" (ตรง Callback URL ใน LINE console เป๊ะ)
+ * production: ใช้ NEXT_PUBLIC_SITE_URL (baked ตอน build ใน Dockerfile) เพื่อไม่ให้เปลี่ยนตาม
+ * host ที่ผู้ใช้พิมพ์/bookmark (เช่น เข้าทาง IP:3001 จะทำให้ redirect_uri เพี้ยน → LINE ตอน 400 เฉพาะเครื่องนั้น)
+ * dev/local: fallback เป็น origin ปัจจุบันเหมือนเดิม
+ */
+export const lineRedirectUri = () => {
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '')
+  return site ? `${site}/` : absoluteUrl('/')
+}

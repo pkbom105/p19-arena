@@ -24,6 +24,10 @@ ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 # NEXT_PUBLIC_* ถูก inline ใน client bundle ตอน build — ต้องแปะตรงนี้ ไม่งั้น LINE login ใช้ค่า fallback
 ARG NEXT_PUBLIC_LINE_CHANNEL_ID=2011357077
 ENV NEXT_PUBLIC_LINE_CHANNEL_ID=$NEXT_PUBLIC_LINE_CHANNEL_ID
+# canonical URL ของเว็บ — ใช้เป็น redirect_uri ของ LINE Login (ต้องตรง Callback URL ใน LINE console
+# เป๊ะ และเหมือนกัน "ทุกเครื่อง" ไม่งั้นเครื่องที่เข้าทาง IP/host อื่นจะ login ไม่ได้เฉพาะเครื่องนั้น)
+ARG NEXT_PUBLIC_SITE_URL=https://p19arena.p19avenue.com
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 # build:standalone = next build + คัดลอก .next/static และ public เข้า .next/standalone
 RUN npm run build:standalone

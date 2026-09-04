@@ -1,7 +1,8 @@
 'use client'
 
-import { apiUrl, absoluteUrl } from '@/lib/api'
+import { apiUrl, lineRedirectUri } from '@/lib/api'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { MapPin } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
 import { StepperHeader } from '@/components/booking/stepper-header'
@@ -67,11 +68,21 @@ export default function BookingPage() {
     const code = params.get('code')
     const state = params.get('state')
 
-    if (code && state) {
-      const savedState = sessionStorage.getItem('line_login_state')
-      const intent = sessionStorage.getItem('line_login_intent')
+    // LINE ส่ง error กลับมาทาง query (เช่น error=access_denied) — แจ้งผู้ใช้แทนการเงียบ
+    const oauthError = params.get('error')
 
-      if (savedState === state && intent === 'booking') {
+    if (oauthError) {
+      toast.error(`LINE Login ไม่สำเร็จ: ${params.get('error_description') || oauthError}`)
+      window.history.replaceState({}, '', '/')
+      return
+    }
+
+    if (code && state) {
+      // state เก็บไว้ทั้ง 2 ที่ (sessionStorage + localStorage) — เผื่อ browser ที่ล้าง sessionStorage ตอน redirect
+      const savedState =
+        sessionStorage.getItem('line_login_state') || localStorage.getItem('line_login_state')
+
+      if (savedState === state) {
         handleLineCallback(code)
         window.history.replaceState({}, '', '/')
       }
@@ -87,8 +98,8 @@ export default function BookingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code,
-          // ต้องตรงกับ Callback URL ที่ลงทะเบียนใน LINE console เป๊ะ (รวม basePath เช่น /p19arena)
-          redirectUri: absoluteUrl('/'),
+          // ต้องตรงกับ Callback URL ที่ลงทะเบียนใน LINE console เป๊ะ และเหมือนกันทุกเครื่อง
+          redirectUri: lineRedirectUri(),
         }),
       })
 
@@ -98,13 +109,21 @@ export default function BookingPage() {
         setLineUser(user)
       } else {
         console.error('LINE auth error:', user?.error || res.status)
+        // code ใช้ซ้ำ/หมดอายุ (กด refresh ตอนหน้า callback) = invalid_grant — ให้ลอง login ใหม่
+        toast.error(user?.error || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณากดเข้าสู่ระบบอีกครั้ง')
       }
 
       setStep(2)
       sessionStorage.removeItem('line_login_state')
       sessionStorage.removeItem('line_login_intent')
+      try {
+        localStorage.removeItem('line_login_state')
+      } catch {
+        // ignore
+      }
     } catch (err) {
       console.error('LINE auth error:', err)
+      toast.error('เชื่อมต่อ LINE ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่')
       setStep(2)
     } finally {
       setIsLoading(false)

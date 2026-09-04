@@ -4,12 +4,31 @@ import { useCallback, useEffect, useState } from 'react'
 import { MessageCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { absoluteUrl, apiUrl } from '@/lib/api'
+import { absoluteUrl, apiUrl, lineRedirectUri } from '@/lib/api'
 import { useBookingStore } from '@/store/booking-store'
 
 const LINE_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || 'YOUR_CHANNEL_ID'
-// redirect_uri ต้องตรง Callback URL ใน LINE console เป๊ะ (รวม basePath เช่น https://p19avenue.com/p19arena/)
-const LINE_LOGIN_REDIRECT_URI = absoluteUrl('/')
+// redirect_uri ต้องตรง Callback URL ใน LINE console เป๊ะ + เหมือนกันทุกเครื่อง
+// (ใช้ canonical URL จาก NEXT_PUBLIC_SITE_URL กันเครื่องที่เข้าทาง IP/host อื่นได้ redirect_uri เพี้ยน)
+const LINE_LOGIN_REDIRECT_URI = lineRedirectUri()
+
+/**
+ * สร้าง state แบบ random — crypto.randomUUID มีเฉพาะ browser ใหม่ + secure context
+ * เครื่องเก่า (iOS < 15.4, Chrome < 92, LINE in-app browser เก่า) จะ undefined
+ * → กดปุ่มแล้วเงียบ (login ไม่ได้เฉพาะเครื่องเก่า) — ต้องมี fallback
+ */
+function makeState(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  const bytes = new Uint8Array(16)
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes)
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256)
+  }
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
 
 export function StepLineLogin() {
   const { setStep, setLineUser, setLineLoginSkipped, setIsLoading, isLoading } = useBookingStore()
@@ -36,9 +55,16 @@ export function StepLineLogin() {
 
   const handleLineLogin = useCallback(() => {
     setIsLoading(true)
-    const state = crypto.randomUUID()
+    const state = makeState()
+    // เก็บ state ไว้ทั้ง sessionStorage + localStorage — in-app browser (เปิดจากนักบรรทัด LINE)
+    // และ browser โหมด private บางตัวล้าง sessionStorage ตอน redirect กลับมา → state หาย = login เงียบ
     sessionStorage.setItem('line_login_state', state)
     sessionStorage.setItem('line_login_intent', 'booking')
+    try {
+      localStorage.setItem('line_login_state', state)
+    } catch {
+      // localStorage เต็ม/ถูกปิด — มี sessionStorage พอ
+    }
 
     const params = new URLSearchParams({
       response_type: 'code',
