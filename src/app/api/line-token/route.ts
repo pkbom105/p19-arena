@@ -24,17 +24,30 @@ function decodeIdTokenPayload(idToken: string): LineIdTokenClaims {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { code, redirectUri } = await request.json()
+    const code = await request.json<{ code?: string; redirectUri?: string }>().catch(() => ({}))
 
     if (!code || !redirectUri) {
       return NextResponse.json({ error: 'code and redirectUri are required' }, { status: 400 })
     }
 
-    const channelId = process.env.LINE_CHANNEL_ID || process.env.NEXT_PUBLIC_LINE_CHANNEL_ID
-    const channelSecret = process.env.LINE_CHANNEL_SECRET
+    // อ่าน LINE ข้อมูลจาก Settings ใน DB (ตั้งในหน.ตั้งค่า) — fallback ไป env
+    let lineChannelId = process.env.LINE_CHANNEL_ID || process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || ''
+    let lineChannelSecret = process.env.LINE_CHANNEL_SECRET || ''
 
-    if (!channelId || !channelSecret) {
-      console.error('LINE credentials missing: set LINE_CHANNEL_SECRET in .env')
+    try {
+      const rows = await db.settings.findMany({
+        where: { key: { in: ['line_channel_id', 'line_channel_secret'] } },
+      })
+      for (const row of rows) {
+        if (row.key === 'line_channel_id' && row.value.trim()) lineChannelId = row.value.trim()
+        if (row.key === 'line_channel_secret' && row.value.trim()) lineChannelSecret = row.value.trim()
+      }
+    } catch (e) {
+      console.error('[LINE] settings lookup failed:', e)
+    }
+
+    if (!lineChannelId || !lineChannelSecret) {
+      console.error('LINE credentials missing: set LINE_CHANNEL_SECRET (env) หรือ line_channel_secret ในหน้าตั้งค่า')
       return NextResponse.json({ error: 'LINE credentials are not configured' }, { status: 500 })
     }
 
@@ -45,8 +58,8 @@ export async function POST(request: NextRequest) {
         grant_type: 'authorization_code',
         code,
         redirect_uri: redirectUri,
-        client_id: channelId,
-        client_secret: channelSecret,
+        client_id: lineChannelId,
+        client_secret: lineChannelSecret,
       }).toString(),
     })
 

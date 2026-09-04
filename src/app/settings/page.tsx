@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Plus, Pencil, Trash2, Save, X, Dumbbell,
-  MapPin, Wrench, Loader2, Check, Tag, Clock, CalendarDays,
+  MapPin, Wrench, Loader2, Check, Tag, Clock, CalendarDays, MessageCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -649,6 +649,44 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* LINE Login settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-sky-600" />
+              LINE Login
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              ตั้งค่า LINE Login สำหรับการเข้าสู่ระบบด้วย LINE (Channel ID + Channel Secret จาก LINE Developers Console)
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">LINE Channel ID (NEXT_PUBLIC_LINE_CHANNEL_ID)</Label>
+              <Input
+                value={settings.line_channel_id || ''}
+                onChange={(e) => setSettings(prev => ({ ...prev, line_channel_id: e.target.value }))}
+                onBlur={(e) => handleSaveSetting('line_channel_id', e.target.value)}
+                placeholder="2011357077"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">LINE Channel Secret (LINE_CHANNEL_SECRET)</Label>
+              <Input
+                type="password"
+                value={settings.line_channel_secret || ''}
+                onChange={(e) => setSettings(prev => ({ ...prev, line_channel_secret: e.target.value }))}
+                onBlur={(e) => handleSaveSetting('line_channel_secret', e.target.value)}
+                placeholder="••••••••••••••••"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              บันทึกอัตโนมัติเมื่อเลื่อนออกจากช่อง (blur) — ค่าที่บันทึกเก็บในตาราง Settings ของฐานข้อมูล
+            </p>
+          </CardContent>
+        </Card>
+
           </TabsContent>
         </Tabs>
 

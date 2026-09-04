@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MessageCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { absoluteUrl } from '@/lib/api'
+import { absoluteUrl, apiUrl } from '@/lib/api'
 import { useBookingStore } from '@/store/booking-store'
 
 const LINE_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || 'YOUR_CHANNEL_ID'
@@ -14,6 +14,26 @@ const LINE_LOGIN_REDIRECT_URI = absoluteUrl('/')
 export function StepLineLogin() {
   const { setStep, setLineUser, setLineLoginSkipped, setIsLoading, isLoading } = useBookingStore()
 
+  // อ่าน Channel ID จาก Settings ใน DB (หน.ตั้งค่า) — fallback ไป value ที่ build ไว้ตอนนี้
+  const [lineChannelId, setLineChannelId] = useState(LINE_CHANNEL_ID)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(apiUrl('/api/settings'), { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        const id = (data && typeof data.line_channel_id === 'string' && data.line_channel_id.trim())
+          ? data.line_channel_id.trim()
+          : LINE_CHANNEL_ID
+        setLineChannelId(id)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const handleLineLogin = useCallback(() => {
     setIsLoading(true)
     const state = crypto.randomUUID()
@@ -22,7 +42,7 @@ export function StepLineLogin() {
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: LINE_CHANNEL_ID,
+      client_id: lineChannelId,
       redirect_uri: LINE_LOGIN_REDIRECT_URI,
       state,
       scope: 'profile openid',
@@ -30,7 +50,7 @@ export function StepLineLogin() {
     })
 
     window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`
-  }, [setIsLoading])
+  }, [setIsLoading, lineChannelId])
 
   const handleSkipLogin = async () => {
     setLineLoginSkipped(true)
