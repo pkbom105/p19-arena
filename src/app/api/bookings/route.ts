@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { generateTicketCode } from '@/lib/ticket-code'
 import { format, addDays } from 'date-fns'
 import { th } from 'date-fns/locale'
+import { sendTicketPush } from '@/lib/line-messaging'
 
 /** สร้าง booking โดยพยายาม ticketCode ที่ไม่ซ้ำ (retry เมื่อชนกัน) */
 async function createBookingWithUniqueCode(data: Prisma.BookingUncheckedCreateInput) {
@@ -117,6 +118,9 @@ export async function POST(request: NextRequest) {
         })
         .catch(() => {})
     }
+
+    // 🔔 Push ticket เข้าแชท LINE (ผู้ใช้ที่ login ด้วย LINE + เป็นเพื่อน OA) — fire-and-forget ไม่ล้มการจอง
+    void sendTicketPush(booking.id)
 
     return NextResponse.json(booking, { status: 201 })
   } catch (error) {

@@ -91,6 +91,12 @@ interface LineMember {
   _count: { bookings: number }
 }
 
+interface MessagingStatus {
+  connected: boolean
+  channelId?: string
+  tokenExpiresAt?: string | null
+}
+
 interface Stats {
   totals: { bookings: number; courts: number; equipment: number; priceRules: number; users: number }
   status: { pending: number; confirmed: number; cancelled: number }
@@ -164,11 +170,15 @@ export default function DashboardPage() {
   const [editingBooking, setEditingBooking] = useState<BookingRow | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [lineMembers, setLineMembers] = useState<LineMember[]>([])
+  const [msgStatus, setMsgStatus] = useState<MessagingStatus | null>(null)
+  const [msgChannelId, setMsgChannelId] = useState('')
+  const [msgChannelSecret, setMsgChannelSecret] = useState('')
+  const [isSavingMsg, setIsSavingMsg] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [courtsRes, equipRes, settingsRes, rulesRes, slotsRes, bookingsRes, statsRes, usersRes] = await Promise.all([
+      const [courtsRes, equipRes, settingsRes, rulesRes, slotsRes, bookingsRes, statsRes, usersRes, msgRes] = await Promise.all([
         fetch(apiUrl('/api/courts')),
         fetch(apiUrl('/api/equipment')),
         fetch(apiUrl('/api/settings')),
@@ -177,6 +187,7 @@ export default function DashboardPage() {
         fetch(apiUrl('/api/bookings')),
         fetch(apiUrl('/api/stats')),
         fetch(apiUrl('/api/users')),
+        fetch(apiUrl('/api/line-messaging')),
       ])
       const courtsData = await courtsRes.json()
       const equipData = await equipRes.json()
@@ -194,6 +205,11 @@ export default function DashboardPage() {
       if (Array.isArray(bookingsData)) setBookings(bookingsData)
       if (statsData && !statsData.error) setStats(statsData)
       if (Array.isArray(usersData)) setLineMembers(usersData)
+      const msgData = await msgRes.json().catch(() => null)
+      if (msgData && !msgData.error) {
+        setMsgStatus(msgData)
+        if (msgData.connected) setMsgChannelId(msgData.channelId || '')
+      }
     } catch (err) {
       console.error('Failed to fetch settings data', err)
     } finally {
@@ -368,6 +384,30 @@ export default function DashboardPage() {
       fetchData()
     } catch {
       toast.error('LINE save failed')
+    }
+  }
+
+  // LINE Messaging API — บันทึก + ทดสอบจริงกับ LINE (issue access token ทันที)
+  const handleSaveMessaging = async () => {
+    try {
+      setIsSavingMsg(true)
+      const res = await fetch(apiUrl('/api/line-messaging'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId: msgChannelId.trim(),
+          channelSecret: msgChannelSecret.trim() || '********',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'บันทึกไม่สำเร็จ')
+      toast.success('เชื่อมต่อ Messaging API สำเร็จ — ตั๋วจะถูกส่งเข้าแชทลูกค้าหลังจอง')
+      setMsgChannelSecret('')
+      fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'เชื่อมต่อไม่สำเร็จ — เช็ค Channel ID/Secret')
+    } finally {
+      setIsSavingMsg(false)
     }
   }
 
@@ -846,6 +886,70 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               Channel Secret แสดงเป็น * เมื่อบันทึกแล้ว — ถ้าไม่แก้จะไม่ทับค่าเดิม (save button)
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Messaging API — ส่งตั๋วเข้าแชท LINE (Push) */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-green-600" />
+                Messaging API — ส่งตั๋วเข้าแชท
+              </CardTitle>
+              <Badge
+                variant="outline"
+                className={msgStatus?.connected
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : 'bg-muted text-muted-foreground'}
+              >
+                {msgStatus?.connected ? '● Connected' : '○ Not configured'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              ส่งตั๋วเข้าแชท LINE ของลูกค้าอัตโนมัติหลังจองสำเร็จ — ใช้ Channel ของ{' '}
+              <span className="font-medium">Messaging API</span> จาก LINE Official Account (Channel ID ขึ้นต้น 200…)
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Channel ID</Label>
+                <Input
+                  value={msgChannelId}
+                  onChange={(e) => setMsgChannelId(e.target.value)}
+                  placeholder="เช่น 2011436516"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Channel Secret</Label>
+                <Input
+                  type="password"
+                  value={msgChannelSecret}
+                  onChange={(e) => setMsgChannelSecret(e.target.value)}
+                  placeholder={msgStatus?.connected ? '•••••••••••••••• (บันทึกแล้ว)' : 'ความลับแชนแนล'}
+                />
+              </div>
+            </div>
+            {msgStatus?.connected && msgStatus.tokenExpiresAt && (
+              <p className="text-xs text-muted-foreground">
+                Access token หมดอายุ {new Date(msgStatus.tokenExpiresAt).toLocaleDateString('th-TH')} — ระบบต่ออายุอัตโนมัติ
+              </p>
+            )}
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 h-8 text-xs"
+                onClick={handleSaveMessaging}
+                disabled={isSavingMsg || !msgChannelId.trim()}
+              >
+                {isSavingMsg ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                {isSavingMsg ? 'กำลังทดสอบ...' : 'Save Messaging'}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {msgStatus?.connected ? `เชื่อมต่อแล้ว (ID: ${msgStatus.channelId})` : 'กด Save = ทดสอบกับ LINE ทันที'}
+              </span>
+            </div>
           </CardContent>
         </Card>
 

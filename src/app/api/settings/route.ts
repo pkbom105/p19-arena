@@ -7,7 +7,7 @@ export async function GET() {
     const kv: Record<string, string> = {}
     for (const s of settings) {
       // ป้องไม่ให้ secret ถูกส่งกลับไป client — แสดงว่า set แล้ว (masked)
-      if (s.key === 'line_channel_secret') {
+      if (s.key === 'line_channel_secret' || s.key === 'line_messaging_channel_secret') {
         kv[s.key] = s.value.trim() ? '********' : ''
       } else {
         kv[s.key] = s.value
@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest) {
 
     // ถ้า client ส่งค่า masked กลับ (********) → ไม่บันทึก (ค่าจริงยังอยู่)
     const rawValue = String(value ?? '')
-    if (key === 'line_channel_secret' && rawValue === '********') {
+    if ((key === 'line_channel_secret' || key === 'line_messaging_channel_secret') && rawValue === '********') {
       return NextResponse.json({ ok: true, masked: true })
     }
 
