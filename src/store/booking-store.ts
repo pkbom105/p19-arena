@@ -79,21 +79,16 @@ interface BookingStore {
   timeSlots: TimeSlot[]
   setTimeSlots: (slots: TimeSlot[]) => void
 
-  bookedSlots: string[]
-  setBookedSlots: (slots: string[]) => void
-
   selectedDate: string
   setSelectedDate: (date: string) => void
 
-  selectedCourt: Court | null
-  setSelectedCourt: (court: Court | null) => void
-
-  selectedTimeSlots: TimeSlot[]
-  toggleTimeSlot: (slot: TimeSlot) => void
-  clearTimeSlots: () => void
+  /** ช่องที่เลือกในกริด "สนาม × เวลา" (หน้าเดียวจบ) — key รูปแบบ `${courtId}|${slotId}` */
+  selectedCells: string[]
+  toggleCell: (key: string) => void
+  clearCells: () => void
 
   bookingItems: BookingItem[]
-  addBookingItem: () => void
+  addBookingItems: (items: Omit<BookingItem, 'id'>[]) => void
   removeBookingItem: (itemId: string) => void
   clearAllBookingItems: () => void
 
@@ -147,25 +142,16 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
     const clear: Record<string, unknown> = { step: targetStep }
 
-    // Clear current selection (date/court/slots) when going back
+    // Clear current selection (date/grid cells) when going back
     // Never clear bookingItems or rentalSelections - those are preserved across "จองเพิ่ม" cycles
     if (targetStep <= 1) {
       clear.selectedDate = ''
-      clear.selectedCourt = null
-      clear.selectedTimeSlots = []
+      clear.selectedCells = []
       clear.lineLoginSkipped = false
     }
     if (targetStep <= 2) {
-      clear.selectedDate = ''
-      clear.selectedCourt = null
-      clear.selectedTimeSlots = []
-    }
-    if (targetStep <= 3) {
-      clear.selectedCourt = null
-      clear.selectedTimeSlots = []
-    }
-    if (targetStep <= 4) {
-      clear.selectedTimeSlots = []
+      // กลับมาที่กริด (สนาม+เวลา หน้าเดียว) — คง selectedDate ไว้เพื่อเลือกเพิ่มต่อได้ทันที
+      clear.selectedCells = []
     }
     set(clear)
   },
@@ -176,48 +162,29 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   timeSlots: [],
   setTimeSlots: (timeSlots) => set({ timeSlots }),
 
-  bookedSlots: [],
-  setBookedSlots: (bookedSlots) => set({ bookedSlots }),
-
   selectedDate: '',
   setSelectedDate: (selectedDate) => set({ selectedDate }),
 
-  selectedCourt: null,
-  setSelectedCourt: (selectedCourt) => set({ selectedCourt }),
-
-  selectedTimeSlots: [],
-  toggleTimeSlot: (slot) =>
-    set((state) => {
-      const exists = state.selectedTimeSlots.some((s) => s.id === slot.id)
-      if (exists) {
-        return { selectedTimeSlots: state.selectedTimeSlots.filter((s) => s.id !== slot.id) }
-      }
-      return { selectedTimeSlots: [...state.selectedTimeSlots, slot] }
-    }),
-  clearTimeSlots: () => set({ selectedTimeSlots: [] }),
+  selectedCells: [],
+  toggleCell: (key) =>
+    set((state) => ({
+      selectedCells: state.selectedCells.includes(key)
+        ? state.selectedCells.filter((k) => k !== key)
+        : [...state.selectedCells, key],
+    })),
+  clearCells: () => set({ selectedCells: [] }),
 
   bookingItems: [],
 
-  /** Save current selection as a booking item and clear current selection */
-  addBookingItem: () => {
-    const { selectedDate, selectedCourt, selectedTimeSlots, bookingItems } = get()
-    if (selectedDate && selectedCourt && selectedTimeSlots.length > 0) {
-      set({
-        bookingItems: [
-          ...bookingItems,
-          {
-            id: crypto.randomUUID(),
-            date: selectedDate,
-            court: selectedCourt,
-            timeSlots: [...selectedTimeSlots],
-          },
-        ],
-        selectedCourt: null,
-        selectedTimeSlots: [],
-        // Keep selectedDate so user can book another court for same date
-      })
-    }
-  },
+  /** เพิ่มรายการจองจากกริด (จัดกลุ่มตามสนามแล้ว) และล้างช่องที่เลือก */
+  addBookingItems: (items) =>
+    set((state) => ({
+      bookingItems: [
+        ...state.bookingItems,
+        ...items.map((item) => ({ ...item, id: crypto.randomUUID() })),
+      ],
+      selectedCells: [],
+    })),
 
   removeBookingItem: (itemId) =>
     set((state) => ({

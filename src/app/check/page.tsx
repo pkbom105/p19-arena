@@ -7,6 +7,7 @@ import { Search, Loader2, CalendarX2, Phone, Ticket } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
 import { BookingTicket, type TicketBooking } from '@/components/booking/booking-ticket'
 import { TicketQrScanner } from '@/components/booking/ticket-qr-scanner'
+import { SlipUploadCard } from '@/components/booking/slip-upload-card'
 import { Button } from '@/components/ui/button'
 
 export default function CheckBookingPage() {
@@ -110,6 +111,14 @@ export default function CheckBookingPage() {
             ค้นหา
           </Button>
           <TicketQrScanner onScan={handleQrScan} />
+
+          {/* ส่งสลิปการชำระเงิน — อยู่ใต้กล้องสแกน QR */}
+          <SlipUploadCard
+            defaultPhone={phone}
+            defaultCode={code}
+            onUploaded={() => { if (bookings.length > 0) handleLookup() }}
+          />
+
           <p className="text-center text-xs text-muted-foreground">
             กรอกอย่างใดอย่างหนึ่ง — ถ้ากรอกทั้งสองช่อง ระบบจะค้นหาด้วยรหัสตั๋ว<br />
             หรือใช้ปุ่มสแกน QR เพื่อถ่ายภาพ QR บนตั๋วแล้วค้นหาให้อัตโนมัติ

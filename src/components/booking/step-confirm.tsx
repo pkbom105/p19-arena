@@ -171,7 +171,7 @@ const validate = () => {
 
     if (results.length > 0) {
       setSubmittedBookings(results)
-      setStep(7)
+      setStep(5)
       toast.success(`จองสำเร็จ ${results.length} รายการ!`)
     }
     setIsLoading(false)
@@ -182,7 +182,7 @@ const validate = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goToStep(5)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goToStep(3)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h2 className="text-lg font-semibold">ยืนยันการจอง</h2>
@@ -358,7 +358,7 @@ const validate = () => {
       </Card>
 
       <div className="flex gap-3 pt-2">
-        <Button variant="outline" className="flex-1" onClick={() => goToStep(5)}>
+        <Button variant="outline" className="flex-1" onClick={() => goToStep(3)}>
           ย้อนกลับ
         </Button>
         <Button

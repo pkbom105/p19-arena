@@ -172,8 +172,8 @@ export function StepSummary() {
   const totalPrice = courtPrice + rentalPrice
 
   const handleAddMore = () => {
-    // Go to step 3 (court selection) keeping the date for multi-court booking
-    goToStep(3)
+    // กลับไปกริด "สนาม+เวลา" (หน้าเดียว) โดยคงวันที่ที่เลือกไว้ เพื่อจองสนาม/ช่วงเวลาเพิ่ม
+    goToStep(2)
   }
 
   const validateBooker = () => {
@@ -442,7 +442,7 @@ export function StepSummary() {
                 <div className="text-lg font-bold text-emerald-700">฿{formatPrice(totalPrice)}</div>
               </div>
               <DialogFooter>
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => { setQrOpen(false); setStep(6) }}>
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => { setQrOpen(false); setStep(4) }}>
                   ดำเนินการต่อ
                 </Button>
               </DialogFooter>

@@ -37,9 +37,8 @@ export function StepSuccess() {
     submittedBookings,
     resetBookingForm,
     setStep,
-    setSelectedCourt,
     setSelectedDate,
-    clearTimeSlots,
+    clearCells,
     setLineLoginSkipped,
     clearAllBookingItems,
     lineUser,
@@ -54,12 +53,11 @@ export function StepSuccess() {
 
   const handleNewBooking = () => {
     resetBookingForm()
-    setSelectedCourt(null)
     setSelectedDate('')
-    clearTimeSlots()
+    clearCells()
     setLineLoginSkipped(false)
     clearAllBookingItems()
-    // Already logged in via LINE → skip the login gate (step 1) and go to date selection
+    // Already logged in via LINE → skip the login gate (step 1) and go to the booking grid
     setStep(lineUser ? 2 : 1)
   }
 

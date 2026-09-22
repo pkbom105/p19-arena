@@ -6,13 +6,11 @@ import { toast } from 'sonner'
 import { MapPin } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
 import { StepperHeader } from '@/components/booking/stepper-header'
-import { StepDate } from '@/components/booking/step-date'
-import { StepCourt } from '@/components/booking/step-court'
-import { StepTimeSlot } from '@/components/booking/step-timeslot'
+import { StepLineLogin } from '@/components/booking/step-line-login'
+import { StepGrid } from '@/components/booking/step-grid'
 import { StepSummary } from '@/components/booking/step-summary'
 import { StepConfirm } from '@/components/booking/step-confirm'
 import { StepSuccess } from '@/components/booking/step-success'
-import { StepLineLogin } from '@/components/booking/step-line-login'
 import { useBookingStore } from '@/store/booking-store'
 import type { BookingItem, RentalItem } from '@/store/booking-store'
 
@@ -145,16 +143,14 @@ export default function BookingPage() {
 
       {/* Main content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4">
-        {step >= 1 && step <= 6 && <StepperHeader />}
+        {step >= 1 && step <= 4 && <StepperHeader />}
 
         <div className="mt-4">
           {step === 1 && <StepLineLogin />}
-          {step === 2 && <StepDate />}
-          {step === 3 && <StepCourt />}
-          {step === 4 && <StepTimeSlot />}
-          {step === 5 && <StepSummary />}
-          {step === 6 && <StepConfirm />}
-          {step === 7 && <StepSuccess />}
+          {step === 2 && <StepGrid />}
+          {step === 3 && <StepSummary />}
+          {step === 4 && <StepConfirm />}
+          {step === 5 && <StepSuccess />}
         </div>
       </main>
 

@@ -5,16 +5,14 @@ import { useBookingStore } from '@/store/booking-store'
 
 const STEPS = [
   { label: 'เข้าสู่ระบบ LINE', short: 'LINE' },
-  { label: 'เลือกวัน', short: 'วัน' },
-  { label: 'เลือกสนาม', short: 'สนาม' },
-  { label: 'เลือกเวลา', short: 'เวลา' },
+  { label: 'เลือกวัน สนาม และเวลา', short: 'จองสนาม' },
   { label: 'สรุปรายการ', short: 'สรุป' },
   { label: 'ยืนยันการจอง', short: 'ยืนยัน' },
 ]
 
 export function StepperHeader() {
   const { step, goToStep } = useBookingStore()
-  const currentStep = Math.min(step, 6)
+  const currentStep = Math.min(step, STEPS.length)
 
   const handleClick = (targetStep: number) => {
     if (targetStep >= currentStep) return

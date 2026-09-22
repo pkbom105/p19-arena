@@ -166,7 +166,7 @@ export async function getMessagingAccessToken(): Promise<string | null> {
 
 /** URL หน้า ticket สำหรับปุ่มในข้อความ */
 export function ticketUrl(bookingId: string): string {
-  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') || 'https://p19arena.p19avenue.com'
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') || 'https://booking.p19avenue.com'
   return `${site}/ticket/${bookingId}`
 }
 
