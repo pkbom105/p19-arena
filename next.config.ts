@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// basePath ของแอป — ตั้งผ่าน NEXT_PUBLIC_BASE_PATH (เช่น '/p19arena' สำหรับ https://p19avenue.com/p19arena)
+// basePath ของแอป — ตั้งผ่าน NEXT_PUBLIC_BASE_PATH (เช่น '/booking' สำหรับ https://p19avenue.com/booking)
 // client-side ต้องใช้ apiUrl()/BASE_PATH จาก src/lib/api.ts คู่กัน
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
 

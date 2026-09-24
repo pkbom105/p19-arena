@@ -2,8 +2,8 @@
 
 > Production = **VPS** (SQLite ทำงานเต็มรูปแบบ) · Vercel = **preview เท่านั้น** (ไม่มี DB — API จะ 500 บน preview ถือเป็นเรื่องปกติ)
 >
-> **Deploy URL:** `https://p19arena.p19avenue.com/` — subdomain สำหรับแอป booking (สะอาด URL ราก `/`)
-> (ตั้งผ่าน `NEXT_PUBLIC_BASE_PATH=/` ตอน build — Dockerfile ตั้ง default ไว้ให้แล้ว; ากต้องการ subpath ใช้ `--build-arg NEXT_PUBLIC_BASE_PATH=/p19arena`)
+> **Deploy URL:** `https://booking.p19avenue.com/` — subdomain สำหรับแอป booking (สะอาด URL ราก `/`)
+> (ตั้งผ่าน `NEXT_PUBLIC_BASE_PATH=/` ตอน build — Dockerfile ตั้ง default ไว้ให้แล้ว; ถ้าต้องการ subpath ใช้ `--build-arg NEXT_PUBLIC_BASE_PATH=/booking`)
 
 ## 0) สิ่งที่ต้องมีบน VPS
 - **Docker** (แนะนำ — ใช้ `Dockerfile` ในรีโป) **หรือ** Node.js ≥ 20
@@ -21,7 +21,7 @@ docker run -d --name p19-arena --restart unless-stopped \
 # ทดสอบ: curl http://localhost:3001/ → ต้องได้ 200
 ```
 - `Dockerfile` build แบบ multi-stage (deps → builder → runner), รันด้วย user ไม่ใช่ root
-- **basePath default = `/`** (clean URL สำหรับ subdomain `https://p19arena.p19avenue.com`; ถ้าจะรันใต้พาธ: `docker build --build-arg NEXT_PUBLIC_BASE_PATH=/p19arena .`)
+- **basePath default = `/`** (clean URL สำหรับ subdomain `https://booking.p19avenue.com`; ถ้าจะรันใต้พาธ: `docker build --build-arg NEXT_PUBLIC_BASE_PATH=/booking .`)
 - **DB อยู่ที่ `/app/db/data.db` ใน volume `p19-db`** — ข้อมูลการจองอยู่รอดตอน rebuild container
 - สำรอง DB: `docker exec p19-arena cat /app/db/data.db > backup-$(date +%F).db`
 
@@ -83,16 +83,16 @@ WantedBy=multi-user.target
 sudo systemctl enable --now p19-arena
 ```
 
-## 6) Reverse proxy — https://p19arena.p19avenue.com (nginx — HTTPS อัตโนมัติ)
+## 6) Reverse proxy — https://booking.p19avenue.com (nginx — HTTPS อัตโนมัติ)
 
 **สำคัญ:** แอปใช้ basePath default = `/` — ห้าม strip หรือ rewrite พาธ (ไม่ต้องแตะ `location` ที่เป็นของ Apache แล้ว)**
 
 ```nginx
 server {
 	listen 443 ssl http2;
-	server_name p19arena.p19avenue.com;
-	ssl_certificate /etc/letsencrypt/live/p19arena.p19avenue.com/fullchain.pem;
-	ssl_certificate_key /etc/letsencrypt/live/p19arena.p19avenue.com/privkey.pem;
+	server_name booking.p19avenue.com;
+	ssl_certificate /etc/letsencrypt/live/booking.p19avenue.com/fullchain.pem;
+	ssl_certificate_key /etc/letsencrypt/live/booking.p19avenue.com/privkey.pem;
 	location / {
 		proxy_pass http://localhost:3001;
 		proxy_http_version 1.1;
@@ -106,7 +106,7 @@ server {
 }
 ```
 
-ผลลัพธ์: `https://p19arena.p19avenue.com/` → แอป P19 Pickleball Arena ✓
+ผลลัพธ์: `https://booking.p19avenue.com/` → แอป P19 Pickleball Arena ✓
 
 > DirectAdmin: ใช้ Proxy feature ชี้ไปที่ `http://localhost:3001` (หรือแทรก `location /` ด้านบนใน vhost ของ subdomain ก็ได้)
 

@@ -18,7 +18,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # subpath ของแอป — default = ราก `/` (สะอาด URL ที่ https://booking.p19avenue.com)
 # ต้องการ root: ปล่อยว่างไว้!! (Next.js ไม่อ่านค่า "/" — ต้องเป็น empty string เท่านั้น)
-# ถ้าต้องการรันใต้ subpath เช่น /p19arena: docker build --build-arg NEXT_PUBLIC_BASE_PATH=/p19arena .
+# ถ้าต้องการรันใต้ subpath เช่น /booking: docker build --build-arg NEXT_PUBLIC_BASE_PATH=/booking .
 ARG NEXT_PUBLIC_BASE_PATH=
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 # NEXT_PUBLIC_* ถูก inline ใน client bundle ตอน build — ต้องแปะตรงนี้ ไม่งั้น LINE login ใช้ค่า fallback
