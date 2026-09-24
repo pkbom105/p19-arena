@@ -42,6 +42,10 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 # SQLite DB เก็บที่ /app/db → mount volume เพื่อเก็บข้อมูลถาวร: -v p19-db:/app/db
 ENV DATABASE_URL=file:/app/db/data.db
+# canonical URL ต้องมีตอน runtime ด้วย (server-side เช่น สร้างลิงก์ ticket ใน LINE message)
+# ค่า default ตาม deploy หลัก — deploy 2 (booking) ใช้: docker build --build-arg NEXT_PUBLIC_SITE_URL=https://booking.p19avenue.com
+ARG NEXT_PUBLIC_SITE_URL=https://p19arena.p19avenue.com
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN groupadd --system --gid 1001 nodejs && useradd --system --uid 1001 --gid nodejs nextjs
 # standalone มี server.js + node_modules จำเป็น + public/ + .next/static ครบแล้ว (จาก build:standalone)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
