@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState, useRef, type RefObject } from 'react'
-import { Dumbbell, CalendarDays, MapPin, Clock, User, QrCode, Pencil, Ban, Eye, Download, Loader2, Link2 } from 'lucide-react'
+import { Dumbbell, CalendarDays, MapPin, Clock, GraduationCap, User, QrCode, Pencil, Ban, Eye, Download, Loader2, Link2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { generateBookingQR } from '@/components/qrcode'
 import { toPng } from 'html-to-image'
+import type { TicketCoachInfo } from '@/lib/coach-ticket'
+import { formatCoachTimes, formatSlotHours, toMinutes } from '@/lib/ticket-group'
 
 /** ข้อมูลการจองขั้นต่ำสำหรับแสดงเป็น ticket (อิงตามการ์ดอ้างอิง public/ref/ticket.png) */
 export interface TicketBooking {
@@ -19,6 +21,10 @@ export interface TicketBooking {
   playerPhone: string
   court: { id: string; name: string }
   timeSlot: { id: string; startTime: string; endTime: string }
+  /** จำนวนช่องเวลาที่ถูกรวมในตั๋วใบนี้ (> 1 = รวมช่องเวลาติดกันแล้ว) */
+  slotCount?: number
+  /** โค้ชที่จองพร้อมสนาม (ถ้ามี) — แสดงชื่อ + จำนวนชั่วโมงบนตั๋ว */
+  coach?: TicketCoachInfo | null
 }
 
 const THAI_MONTHS = [
@@ -47,15 +53,22 @@ export function getTicketCode(booking: Pick<TicketBooking, 'id' | 'ticketCode'>)
 
 /** สร้างข้อความสำหรับ QR — ข้อมูลจองทั้งหมด */
 function ticketPayload(b: TicketBooking) {
-  return [
+  // ตั๋วที่รวมช่องเวลาติดกันหลายช่อง → ใส่จำนวนชั่วโมงรวมไว้ใน QR ด้วย
+  const mergedHours = (b.slotCount ?? 1) > 1
+    ? (toMinutes(b.timeSlot.endTime) - toMinutes(b.timeSlot.startTime)) / 60
+    : 0
+  const coachTimes = b.coach ? formatCoachTimes(b.coach.startTimes ?? []) : ''
+  const lines = [
     'P19 Pickleball Arena',
     `รหัสจอง: ${getTicketCode(b)}`,
     `วันที่: ${b.bookingDate}`,
     `สนาม: ${b.court.name}`,
-    `เวลา: ${b.timeSlot.startTime} - ${b.timeSlot.endTime}`,
-    `ชื่อ: ${b.playerName}`,
-    `โทร: ${b.playerPhone}`,
-  ].join('\n')
+    `เวลา: ${b.timeSlot.startTime} - ${b.timeSlot.endTime}${mergedHours > 0 ? ` (${mergedHours} ชม.)` : ''}`,
+  ]
+  // มีโค้ชในตั๋วใบนี้ → ใส่จำนวนชั่วโมง + เวลาที่ติ๊กให้โค้ชดูแลไว้ใน QR ด้วย
+  if (b.coach) lines.push(`โค้ช: ${b.coach.name} (${b.coach.hours} ชม.${coachTimes ? ` · ${coachTimes}` : ''})`)
+  lines.push(`ชื่อ: ${b.playerName}`, `โทร: ${b.playerPhone}`)
+  return lines.join('\n')
 }
 
 /** การ์ดตั๋วการจอง (อ้างอิงลายตั๋ว public/ref/ticket.png) */
@@ -86,7 +99,7 @@ export function BookingTicket({
       .then((url) => { if (active) setQr(url) })
       .catch(() => {})
     return () => { active = false }
-  }, [booking.id, booking.bookingDate, booking.timeSlot.startTime])
+  }, [booking.id, booking.bookingDate, booking.timeSlot.startTime, booking.timeSlot.endTime, booking.slotCount, booking.coach?.name, booking.coach?.hours, booking.coach?.startTimes?.join(',')])
 
   const exportPng = async (el: HTMLDivElement | null, filename: string) => {
     if (!el) throw new Error('no element')
@@ -96,6 +109,13 @@ export function BookingTicket({
     link.href = dataUrl
     link.click()
   }
+
+  /** ชั่วโมงรวมของตั๋วที่ถูกรวมช่องติดกัน — แสดงเฉพาะตั๋วที่รวมมากกว่า 1 ช่อง */
+  const mergedHours = (booking.slotCount ?? 1) > 1
+    ? formatSlotHours((toMinutes(booking.timeSlot.endTime) - toMinutes(booking.timeSlot.startTime)) / 60)
+    : ''
+  /** เวลาที่ติ๊กให้โค้ชดูแล (ว่าง = ยังไม่มีข้อมูลเวลา ใช้จำนวนชั่วโมงอย่างเดียว) */
+  const coachTimes = booking.coach ? formatCoachTimes(booking.coach.startTimes ?? []) : ''
 
   const handleDownload = async () => {
     setDownloading(true)
@@ -153,8 +173,19 @@ export function BookingTicket({
         </div>
         <div className="flex items-center gap-1.5">
           <Clock className="h-4 w-4 shrink-0 text-slate-400" />
-          <span className="text-sm leading-snug">{booking.timeSlot?.startTime} - {booking.timeSlot?.endTime} น.</span>
+          <span data-ticket-time className="text-sm leading-snug">
+            {booking.timeSlot?.startTime} - {booking.timeSlot?.endTime} น.{mergedHours ? ` · ${mergedHours} ชม.` : ''}
+          </span>
         </div>
+        {/* โค้ช (ถ้าจองพร้อมโค้ช) — แสดงชื่อ + จำนวนชั่วโมงที่ให้โค้ชดูแล */}
+        {booking.coach && (
+          <div data-ticket-coach className="flex items-center gap-1.5">
+            <GraduationCap className="h-4 w-4 shrink-0 text-emerald-600" />
+            <span className="text-sm leading-snug break-words">
+              โค้ช {booking.coach.name} × {booking.coach.hours} ชม.{coachTimes ? ` · ${coachTimes}` : ''}
+            </span>
+          </div>
+        )}
         <div className="flex items-start gap-1.5">
           <User className="h-4 w-4 shrink-0 text-slate-400 mt-0.5" />
           <span className="text-sm leading-snug break-words">{booking.playerName}<br /><span className="text-xs text-slate-500">{booking.playerPhone}</span></span>

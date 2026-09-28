@@ -1,7 +1,7 @@
 'use client'
 
 import { apiUrl, BASE_PATH } from '@/lib/api'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Plus, Pencil, Trash2, Save, X, Dumbbell,
@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { BookingTicket } from '@/components/booking/booking-ticket'
+import type { TicketCoachInfo } from '@/lib/coach-ticket'
+import { buildTicketViews, mergeTicketView, type TicketView } from '@/lib/ticket-group'
 import { toast } from 'sonner'
 
 interface Court {
@@ -65,6 +67,8 @@ interface TimeSlotItem {
 interface BookingRow {
   id: string
   ticketCode?: string | null
+  /** ข้อมูลโค้ชที่จองพร้อมสนาม (ส่งมาจาก /api/bookings) */
+  coach?: TicketCoachInfo | null
   courtId: string
   timeSlotId: string
   bookingDate: string
@@ -122,6 +126,16 @@ export default function SettingsPage() {
   const [showNewPriceRule, setShowNewPriceRule] = useState(false)
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [editingBooking, setEditingBooking] = useState<BookingRow | null>(null)
+
+  /**
+   * การ์ดยังเป็น "รายแถว" — ปุ่มแก้ไข/ยกเลิก/คัดลอกลิงก์ยึดแถวที่ผู้ใช้กดเหมือนเดิม
+   * แต่แสดงเวลา/ชั่วโมงรวม/โค้ชของ "ตั๋วใบรวม" ที่แถวนั้นอยู่ → ตรงกับตั๋วที่ลูกค้าเปิดดู
+   */
+  const viewByRowId = useMemo(() => {
+    const map = new Map<string, TicketView<BookingRow>>()
+    for (const view of buildTicketViews(bookings)) for (const row of view.rows) map.set(row.id, view)
+    return map
+  }, [bookings])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -566,7 +580,7 @@ export default function SettingsPage() {
                   />
                 ) : (
                   <BookingTicket
-                    booking={b}
+                    booking={mergeTicketView(b, viewByRowId.get(b.id))}
                     onEdit={() => setEditingBooking(b)}
                     onCancel={() => handleCancelBooking(b.id)}
                     onCopyLink={() => handleCopyTicketLink(b)}

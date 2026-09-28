@@ -3,7 +3,7 @@
 import { apiUrl, BASE_PATH } from '@/lib/api'
 import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Trophy } from 'lucide-react'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { BookingSection } from './booking-section'
@@ -15,6 +15,7 @@ import { LineSection } from './line-section'
 import { OverviewSection } from './overview-section'
 import { SectionTabs } from './section-tabs'
 import { SlipUploadPanel } from './slip-upload-panel'
+import { CoachSection } from './coach-section'
 import { SECTIONS, type SectionId } from './helpers'
 import type { PriceRule } from '@/lib/price'
 import type {
@@ -419,6 +420,18 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
 
             <TabsContent value="slip" className="space-y-6">
               <SlipUploadPanel bookings={bookings} loading={loading} onRefresh={fetchData} />
+            </TabsContent>
+
+            <TabsContent value="coach" className="space-y-6">
+              <CoachSection />
+            </TabsContent>
+
+            <TabsContent value="activity" className="space-y-6">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+                <Trophy className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                <p className="font-medium">กิจกรรม</p>
+                <p className="text-sm text-muted-foreground mt-1">กำลังพัฒนา — ฟีเจอร์นี้จะเปิดใช้งานเร็ว ๆ นี้</p>
+              </div>
             </TabsContent>
 
             <TabsContent value="line" className="space-y-6">

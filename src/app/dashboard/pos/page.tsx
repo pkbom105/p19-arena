@@ -191,6 +191,7 @@ export default function PosPage() {
             <TabsContent value="all" className="mt-4">
               <BookingsTable
                 bookings={filteredBookings}
+                allBookings={bookings}
                 courts={courts}
                 priceRules={priceRules}
                 date={date}

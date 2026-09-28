@@ -99,6 +99,40 @@ model PriceRule {
   updatedAt DateTime  @updatedAt
 }
 
+// การจองโค้ช (จริง) — 1 แถวต่อ 1 ครั้งที่จอง = โค้ช + สนาม + วัน/เวลาหลายชั่วโมง
+// เก็บ snapshot ชื่อ/ราคาของโค้ชและสนามไว้ด้วย เพื่อให้ยอดเงินย้อนหลังไม่เปลี่ยนเมื่อแก้ราคาปลายทาง
+// (ไม่มี relation กับ Court/TimeSlot โดยเจตนา — สนาม/ช่วงเวลาจริงถูกบันทึกเป็นแถว Booking คู่กัน)
+model CoachBooking {
+  id              String   @id @default(cuid())
+  ticketCode      String?  @unique
+  coachId         String
+  coachName       String
+  /** ราคาโค้ชต่อชั่วโมง ณ เวลาที่จอง */
+  coachPrice      Int
+  courtId         String
+  courtName       String
+  bookingDate     String
+  /** เวลาเริ่มของแต่ละชั่วโมง คั่นด้วย comma เช่น "09:00,10:00" */
+  startTimes      String
+  hours           Int
+  /** ค่าสนามรวม (คิดตาม PriceRule ของวันนั้น) */
+  courtTotal      Int      @default(0)
+  /** ค่าโค้ชรวม = hours × coachPrice */
+  coachTotal      Int
+  totalPrice      Int
+  /** id ของ Booking (สนาม) ที่สร้างคู่กัน — JSON array เช่น ["id1","id2"] */
+  courtBookingIds String?
+  playerName      String
+  playerPhone     String
+  playerEmail     String?
+  note            String?
+  slipName        String?
+  slipDataUrl     String?
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 // Error tracking / crash reporting (self-hosted) — บันทึก error ฝั่ง server + client
 model ErrorLog {
   id        String   @id @default(cuid())

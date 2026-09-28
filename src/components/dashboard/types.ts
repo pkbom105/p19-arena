@@ -1,5 +1,7 @@
 /* Shared types for the Dashboard page & components */
 
+import type { TicketCoachInfo } from '@/lib/coach-ticket'
+
 export interface Court {
   id: string
   name: string
@@ -38,6 +40,8 @@ export interface BookingRow {
   id: string
   createdAt?: string
   ticketCode?: string | null
+  /** ข้อมูลโค้ชที่จองพร้อมสนาม (ส่งมาจาก /api/bookings) */
+  coach?: TicketCoachInfo | null
   courtId: string
   timeSlotId: string
   bookingDate: string

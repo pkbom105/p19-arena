@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Ban, CalendarDays, Eye, Link2, Pencil, Search } from 'lucide-react'
 import type { PriceRule } from '@/lib/price'
 import { Badge } from '@/components/ui/badge'
@@ -10,9 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { bookingPrice, copyTicketLink, formatThaiDate, statusMeta } from './helpers'
 import { TicketViewDialog } from './ticket-view-dialog'
 import type { BookingRow, Court } from './types'
+import { buildTicketViews, mergeTicketView, type TicketView } from '@/lib/ticket-group'
 
 interface BookingsTableProps {
   bookings: BookingRow[]
+  /** รายการจองทั้งหมด (ไม่ผ่านตัวกรอง) — ใช้หากลุ่มของตั๋วใบรวมตอนกด "ดูตั๋ว" */
+  allBookings?: BookingRow[]
   courts: Court[]
   priceRules: PriceRule[]
   date: string
@@ -30,7 +33,7 @@ interface BookingsTableProps {
 
 /** รายการจองทั้งหมด — ตาราง + ตัวกรอง (ค้นหา / สถานะ / สนาม / ขอบเขตวันที่) */
 export function BookingsTable({
-  bookings, courts, priceRules, date,
+  bookings, allBookings, courts, priceRules, date,
   search, onSearchChange,
   statusFilter, onStatusFilterChange,
   courtFilter, onCourtFilterChange,
@@ -39,6 +42,18 @@ export function BookingsTable({
 }: BookingsTableProps) {
   // Dialog: ดูตั๋วการจอง
   const [ticketBooking, setTicketBooking] = useState<BookingRow | null>(null)
+
+  /**
+   * "ดูตั๋ว" = ตั๋วใบรวมของกลุ่มเวลาติดกันที่แถวนั้นอยู่ (ใช้รายการจองทั้งหมด ไม่ใช่ผลการค้นหา/ตัวกรอง)
+   * → หัวข้อ dialog / ลิงก์ที่คัดลอก / ชื่อไฟล์ = รหัสของแถวแรกสุดของใบ (ตรงกับหน้า /ticket)
+   */
+  const viewByRowId = useMemo(() => {
+    const map = new Map<string, TicketView<BookingRow>>()
+    for (const view of buildTicketViews(allBookings ?? bookings)) for (const row of view.rows) map.set(row.id, view)
+    return map
+  }, [allBookings, bookings])
+
+  const ticketView = ticketBooking ? viewByRowId.get(ticketBooking.id) : undefined
 
   return (
     <div className="space-y-3">
@@ -151,7 +166,7 @@ export function BookingsTable({
       {/* Dialog: ดูตั๋ว */}
       {ticketBooking && (
         <TicketViewDialog
-          booking={ticketBooking}
+          booking={mergeTicketView(ticketView?.lead ?? ticketBooking, ticketView)}
           onClose={() => setTicketBooking(null)}
         />
       )}

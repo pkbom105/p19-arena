@@ -6,6 +6,54 @@ import { format, addDays } from 'date-fns'
 import { th } from 'date-fns/locale'
 import { sendTicketPush } from '@/lib/line-messaging'
 import { SLOT_GRACE_MINUTES, isSlotPassed } from '@/lib/slot-time'
+import { getSlotPrice } from '@/lib/price'
+import { COACH_PACKAGES } from '@/components/activity/coaches'
+import { attachCoachToBookings } from '@/lib/coach-ticket'
+
+/** สถานะที่ยังกันคิวอยู่ (ใช้เช็คคิวโค้ชทับกับลูกค้ารายอื่น) */
+const COACH_ACTIVE_STATUSES = ['pending', 'confirmed']
+
+/** เวลาเริ่มของแต่ละชั่วโมงที่เก็บใน CoachBooking — รูปแบบ "09:00,10:00" */
+function parseStartTimes(value: unknown): string[] {
+  return String(value ?? '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => /^\d{2}:\d{2}$/.test(t))
+}
+
+/** จำนวนชั่วโมงของสล็อต (endTime - startTime) — ใช้คิดค่าโค้ชต่อชั่วโมง */
+function slotHours(startTime: string, endTime: string): number {
+  const [sh, sm] = startTime.split(':').map(Number)
+  const [eh, em] = endTime.split(':').map(Number)
+  return (eh * 60 + em - (sh * 60 + sm)) / 60
+}
+
+/** id ของ Booking (สนาม) ที่ผูกกับ CoachBooking — เก็บเป็น JSON array */
+function parseCourtBookingIds(value: string | null): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map(String) : []
+  } catch {
+    return []
+  }
+}
+
+/** สร้าง CoachBooking โดยพยายาม ticketCode ที่ไม่ซ้ำ (retry เมื่อชนกัน) */
+async function createCoachBookingWithUniqueCode(data: Prisma.CoachBookingUncheckedCreateInput) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      return await db.coachBooking.create({
+        data: { ...data, ticketCode: generateTicketCode() },
+      })
+    } catch (error) {
+      const e = error as { code?: string }
+      if (e.code === 'P2002') continue // ticketCode ชนกัน → ลองใหม่
+      throw error
+    }
+  }
+  throw new Error('ไม่สามารถสร้างรหัสตั๋วโค้ชที่ไม่ซ้ำได้')
+}
 
 /** สร้าง booking โดยพยายาม ticketCode ที่ไม่ซ้ำ (retry เมื่อชนกัน) */
 async function createBookingWithUniqueCode(data: Prisma.BookingUncheckedCreateInput) {
@@ -45,7 +93,8 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json(bookings)
+    // แนบข้อมูลโค้ช (ชื่อ + จำนวนชั่วโมง) เพื่อให้ตั๋วแสดงรายละเอียดโค้ชได้
+    return NextResponse.json(await attachCoachToBookings(bookings))
   } catch (error) {
     console.error('Error fetching bookings:', error)
     return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 })
@@ -55,7 +104,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { courtId, timeSlotId, bookingDate, playerName, playerPhone, playerEmail, note, userId, racketCount, slipName, slipDataUrl, status } = body
+    const { courtId, timeSlotId, bookingDate, playerName, playerPhone, playerEmail, note, userId, racketCount, slipName, slipDataUrl, status, coachId, coachBookingId, coachStartTimes } = body
 
     if (!courtId || !timeSlotId || !bookingDate || !playerName || !playerPhone) {
       return NextResponse.json(
@@ -90,6 +139,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // จองพร้อมโค้ช (ส่ง coachId มาจากหน้า /activity/coach) — คิดเงินรวม + ผูกแถวสนามกับ CoachBooking
+    const coach = coachId ? COACH_PACKAGES.find((c) => c.id === String(coachId)) : undefined
+    if (coachId && !coach) {
+      return NextResponse.json({ error: 'ไม่พบแพ็กเกจโค้ชที่เลือก' }, { status: 400 })
+    }
+
+    /**
+     * ช่องเวลาที่ติ๊กให้โค้ชดูแล (ส่งมาจากขั้นสรุปการจอง)
+     *  - ส่ง coachStartTimes มา → บันทึกคิวโค้ช/คิดค่าโค้ช "เฉพาะช่องที่ติ๊ก"
+     *  - ไม่ส่งมา (เช่น จองจากหน้า /activity/coach) → ดูแลทุกช่วงของสล็อตเหมือนเดิม
+     */
+    const hasTickedCoachTimes = Array.isArray(coachStartTimes)
+    const tickedCoachStartTimes = hasTickedCoachTimes
+      ? [...new Set((coachStartTimes as unknown[]).map((t) => String(t).trim()).filter((t) => /^\d{2}:\d{2}$/.test(t)))].sort()
+      : []
+    /** รอบนี้ต้องบันทึกคิวโค้ชจริงไหม — โหมดติ๊กเลือก: เฉพาะช่องที่ติ๊กเท่านั้น */
+    const coachNeeded = !!coach && (!hasTickedCoachTimes || tickedCoachStartTimes.includes(slot.startTime))
+
+    // โค้ชคนนี้มีคิวทับช่วงเวลานี้หรือยัง (แถวสนามเดิมที่ยกเลิกไปแล้วไม่นับ)
+    if (coach && coachNeeded) {
+      const coachRows = await db.coachBooking.findMany({
+        where: { coachId: coach.id, bookingDate, status: { in: COACH_ACTIVE_STATUSES } },
+      })
+      const clash = coachRows.find(
+        (r) => r.id !== String(coachBookingId ?? '') && parseStartTimes(r.startTimes).includes(slot.startTime)
+      )
+      if (clash) {
+        return NextResponse.json(
+          { error: `${coach.name} มีคิวในช่วงเวลานี้แล้ว (รหัส ${clash.ticketCode ?? clash.id}) — กรุณาเลือกช่วงเวลาอื่น` },
+          { status: 409 }
+        )
+      }
+    }
+
     // ช่องนี้ (court + slot + วันที่) มี booking ค้างอยู่ไหม — unique constraint กันไว้แค่ 1 แถว
     const existing = await db.booking.findFirst({
       where: { courtId, timeSlotId, bookingDate },
@@ -101,6 +184,12 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       )
     }
+
+    // หมายเหตุ: จองพร้อมโค้ช → ขึ้นต้นด้วยชื่อโค้ช ให้หลังบ้านเห็นว่าเป็นการจองคู่กับโค้ช
+    const noteText = String(note ?? '').trim()
+    const finalNote = coach
+      ? [`จองพร้อมโค้ช ${coach.name}`, noteText].filter(Boolean).join(' — ')
+      : noteText || null
 
     // สถานะเริ่มต้น 'confirmed' (ชำระแล้ว) — POS หน้าเคาน์เตอร์ส่ง 'pending' มาได้เมื่อลูกค้ายังไม่จ่าย
     const initialStatus = status === 'pending' ? 'pending' : 'confirmed'
@@ -115,7 +204,7 @@ export async function POST(request: NextRequest) {
           playerName,
           playerPhone,
           playerEmail: playerEmail || null,
-          note: note || null,
+          note: finalNote,
           userId: userId || null,
           racketCount: racketCount || 0,
           slipName: slipName || null,
@@ -133,7 +222,7 @@ export async function POST(request: NextRequest) {
         playerName,
         playerPhone,
         playerEmail: playerEmail || null,
-        note: note || null,
+        note: finalNote,
         userId: userId || null,
         racketCount: racketCount || 0,
         slipName: slipName || null,
@@ -156,10 +245,87 @@ export async function POST(request: NextRequest) {
         .catch(() => {})
     }
 
+    // 🎾 จองพร้อมโค้ช — บันทึก CoachBooking (ยอดรวม = ค่าสนาม + ค่าโค้ช) แล้วผูกกับแถวสนามที่เพิ่งสร้าง
+    //    ส่งหลายช่วงเวลา → client ส่ง coachBookingId กลับมาเพื่อต่อท้ายแถวเดิมของรอบเดียวกัน
+    let coachBookingOutId: string | null = null
+    let coachBookingError = false
+    if (coach && coachNeeded) {
+      try {
+        const rules = await db.priceRule.findMany()
+        const dayOfWeek = new Date(`${bookingDate}T00:00:00`).getDay()
+        const hours = slotHours(booking.timeSlot.startTime, booking.timeSlot.endTime)
+        const slotPrice = getSlotPrice(booking.court.pricePerHour, dayOfWeek, booking.timeSlot.startTime, rules)
+        // ชั่วโมงโค้ช = ช่องที่ติ๊ก (โหมดติ๊กเลือก) หรือทุกช่วงของสล็อต (โหมด /activity/coach)
+        const coachHours = hasTickedCoachTimes ? tickedCoachStartTimes.length : hours
+        /** เวลาเริ่มของแต่ละชั่วโมงที่โค้ชดูแล — รูปแบบ "09:00,10:00" */
+        const coachStartTimesValue = hasTickedCoachTimes ? tickedCoachStartTimes.join(',') : booking.timeSlot.startTime
+        const coachTotalThisSlot = coach.pricePerHour * coachHours
+
+        const target = coachBookingId
+          ? await db.coachBooking.findUnique({ where: { id: String(coachBookingId) } })
+          : null
+        const canExtend =
+          !!target &&
+          target.status !== 'cancelled' &&
+          target.coachId === coach.id &&
+          target.courtId === booking.courtId &&
+          target.bookingDate === bookingDate
+
+        if (target && canExtend) {
+          coachBookingOutId = target.id
+          const courtBookingIds = parseCourtBookingIds(target.courtBookingIds)
+          // ช่วงเวลานี้เคยถูกนับไปแล้ว (เช่น กดยืนยันซ้ำ) → อัปเดตแค่สลิป ไม่บวกยอดซ้ำ
+          if (!courtBookingIds.includes(booking.id)) {
+            await db.coachBooking.update({
+              where: { id: target.id },
+              data: {
+                // เขียนทับด้วยชุดช่องที่ติ๊กทั้งหมดของรายการนี้ (กดยืนยันซ้ำได้ค่าเดิม ไม่บวกซ้ำ)
+                startTimes: coachStartTimesValue,
+                hours: coachHours,
+                courtTotal: target.courtTotal + slotPrice,
+                coachTotal: coachTotalThisSlot,
+                totalPrice: target.courtTotal + slotPrice + coachTotalThisSlot,
+                courtBookingIds: JSON.stringify([...courtBookingIds, booking.id]),
+                slipName: slipName || target.slipName,
+                slipDataUrl: slipDataUrl || target.slipDataUrl,
+              },
+            })
+          }
+        } else {
+          const row = await createCoachBookingWithUniqueCode({
+            coachId: coach.id,
+            coachName: coach.name,
+            coachPrice: coach.pricePerHour,
+            courtId: booking.courtId,
+            courtName: booking.court.name,
+            bookingDate,
+            startTimes: coachStartTimesValue,
+            hours: coachHours,
+            courtTotal: slotPrice,
+            coachTotal: coachTotalThisSlot,
+            totalPrice: slotPrice + coachTotalThisSlot,
+            courtBookingIds: JSON.stringify([booking.id]),
+            playerName,
+            playerPhone,
+            playerEmail: playerEmail || null,
+            note: noteText || null,
+            slipName: slipName || null,
+            slipDataUrl: slipDataUrl || null,
+            status: initialStatus,
+          })
+          coachBookingOutId = row.id
+        }
+      } catch (error) {
+        // จองสนามสำเร็จแล้ว — บันทึกคิวโค้ชล้มไม่ควรทำให้ทั้งคำขอล้ม (client แจ้งเตือนให้ตรวจสอบ)
+        coachBookingError = true
+        console.error('Error creating coach booking:', error)
+      }
+    }
+
     // 🔔 Push ticket เข้าแชท LINE (ผู้ใช้ที่ login ด้วย LINE + เป็นเพื่อน OA) — fire-and-forget ไม่ล้มการจอง
     void sendTicketPush(booking.id)
 
-    return NextResponse.json(booking, { status: 201 })
+    return NextResponse.json({ ...booking, coachBookingId: coachBookingOutId, coachBookingError }, { status: 201 })
   } catch (error) {
     console.error('Error creating booking:', error)
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })

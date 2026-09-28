@@ -68,6 +68,13 @@ export interface PaymentSlip {
   size: number
 }
 
+/** โค้ชที่เลือกมาจากหน้า /activity/coach (?coach= → sessionStorage) — คิดเงินรวมกับค่าสนาม */
+export interface CoachSelection {
+  id: string
+  name: string
+  pricePerHour: number
+}
+
 interface BookingStore {
   step: number
   setStep: (step: number) => void
@@ -108,6 +115,17 @@ interface BookingStore {
 
   slip: PaymentSlip | null
   setSlip: (slip: PaymentSlip | null) => void
+
+  coach: CoachSelection | null
+  setCoach: (coach: CoachSelection | null) => void
+
+  /** จำนวนชั่วโมงที่ผู้ใช้กำหนดให้โค้ชดูแล (ติ๊กจากขั้นสรุปการจอง) */
+  coachHours: number
+  setCoachHours: (value: number | ((prev: number) => number)) => void
+
+  /** ช่องเวลาที่ติ๊กให้โค้ชดูแล รูปแบบ `${itemId}|${slotId}` — ส่งต่อให้ API คิดค่าโค้ชเฉพาะชั่วโมงที่ติ๊ก */
+  coachTickedKeys: string[]
+  setCoachTickedKeys: (value: string[] | ((prev: string[]) => string[])) => void
 
   submittedBookings: unknown[]
   setSubmittedBookings: (bookings: unknown[]) => void
@@ -191,7 +209,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       bookingItems: state.bookingItems.filter((item) => item.id !== itemId),
     })),
 
-  clearAllBookingItems: () => set({ bookingItems: [], rentalSelections: [], slip: null }),
+  clearAllBookingItems: () =>
+    set({ bookingItems: [], rentalSelections: [], slip: null, coachHours: 0, coachTickedKeys: [] }),
 
   rentalSelections: [],
   setRentalSelections: (rentalSelections) => set({ rentalSelections }),
@@ -215,6 +234,19 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   slip: null,
   setSlip: (slip) => set({ slip }),
+
+  coach: null,
+  setCoach: (coach) => set({ coach }),
+
+  coachHours: 0,
+  setCoachHours: (value) =>
+    set((state) => ({ coachHours: typeof value === 'function' ? value(state.coachHours) : value })),
+
+  coachTickedKeys: [],
+  setCoachTickedKeys: (value) =>
+    set((state) => ({
+      coachTickedKeys: typeof value === 'function' ? value(state.coachTickedKeys) : value,
+    })),
 
   submittedBookings: [],
   setSubmittedBookings: (submittedBookings) => set({ submittedBookings }),

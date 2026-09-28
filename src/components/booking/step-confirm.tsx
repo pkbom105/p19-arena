@@ -1,7 +1,7 @@
 'use client'
 
 import { apiUrl } from '@/lib/api'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   ArrowLeft, User, Mail, MessageSquare, CalendarDays,
   MapPin, Clock, UploadCloud, X, Wrench,
@@ -37,6 +37,25 @@ function getItemPrice(item: { court: { pricePerHour: number }; timeSlots: { id: 
   return getItemPriceWithRules(item, rules)
 }
 
+/**
+ * ชั่วโมงที่ติ๊กให้โค้ชดูแล ต่อรายการจอง (คีย์ `${itemId}|${slotId}` ที่ติ๊กในขั้นสรุปการจอง)
+ * — ส่งไปกับ POST เพื่อให้ค่าโค้ชคิดเฉพาะชั่วโมงที่ติ๊กจริง (ไม่ใช่ทุกชั่วโมงที่จอง)
+ */
+function buildCoachStartTimesByItem(
+  keys: string[],
+  items: { id: string; timeSlots: { id: string; startTime: string }[] }[]
+): Record<string, string[]> {
+  const map: Record<string, string[]> = {}
+  for (const key of keys) {
+    const [itemId, slotId] = key.split('|')
+    const item = items.find((it) => it.id === itemId)
+    const ts = item?.timeSlots.find((s) => s.id === slotId)
+    if (!item || !ts) continue
+    map[item.id] = [...(map[item.id] ?? []), ts.startTime].sort()
+  }
+  return map
+}
+
 export function StepConfirm() {
   const {
     bookingItems,
@@ -52,11 +71,16 @@ export function StepConfirm() {
     priceRules,
     setPriceRules,
     lineUser,
+    coach,
+    setCoach,
+    coachTickedKeys,
   } = useBookingStore()
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [slipError, setSlipError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  /** CoachBooking ที่สร้างไปแล้วต่อ 1 สนาม — ส่งกลับไปให้ API ต่อท้ายแถวเดิมของรอบเดียวกัน */
+  const coachBookingIdsRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
     fetch(apiUrl('/api/pricerules'))
@@ -70,7 +94,15 @@ export function StepConfirm() {
   const totalSlots = bookingItems.reduce((sum, item) => sum + item.timeSlots.length, 0)
   const courtPrice = bookingItems.reduce((sum, item) => sum + getItemPrice(item, priceRules), 0)
   const rentalPrice = rentalSelections.reduce((sum, r) => sum + r.pricePerUnit * r.quantity, 0)
-  const totalPrice = courtPrice + rentalPrice
+  // ชั่วโมงที่ติ๊กให้โค้ชดูแล แยกตามรายการจอง — ส่งไปกับ POST เพื่อคิดค่าโค้ชเฉพาะชั่วโมงที่ติ๊ก
+  const coachStartTimesByItem = useMemo(
+    () => buildCoachStartTimesByItem(coachTickedKeys, bookingItems),
+    [coachTickedKeys, bookingItems]
+  )
+  // ค่าโค้ช = ราคา/ชม. × จำนวนชั่วโมงที่ติ๊กให้โค้ชดูแล (ยอดเดียวกับที่แสดงในขั้นสรุปการจอง)
+  const coachHours = coach ? coachTickedKeys.length : 0
+  const coachFee = coach ? coach.pricePerHour * coachHours : 0
+  const totalPrice = courtPrice + rentalPrice + coachFee
 
   // Count total rackets across all bookings (for the first racket-type item)
   const totalRackets = rentalSelections.reduce((sum, r) => {
@@ -153,6 +185,10 @@ const validate = () => {
               racketCount: totalRackets,
               slipDataUrl: slip?.dataUrl || undefined,
               slipName: slip?.name || undefined,
+              coachId: coach?.id || undefined,
+              coachBookingId: coach ? coachBookingIdsRef.current[item.court.id] : undefined,
+              // ช่องที่ติ๊กให้โค้ชดูแลของรายการนี้ — ส่งไปเพื่อคิดค่าโค้ช/บันทึกคิวเฉพาะชั่วโมงที่ติ๊ก
+              coachStartTimes: coach ? (coachStartTimesByItem[item.id] ?? []) : undefined,
             }),
           })
           const data = await res.json()
@@ -160,6 +196,13 @@ const validate = () => {
             toast.error(`${formatDate(item.date)} ${slot.startTime}-${slot.endTime}: ${data.error}`)
             hasError = true
           } else {
+            // จำ CoachBooking ของสนามนี้ไว้ — ช่วงเวลาถัดไปจะได้ต่อท้ายแถวเดิม ไม่สร้างซ้ำ
+            if (coach && data.coachBookingId) {
+              coachBookingIdsRef.current[item.court.id] = String(data.coachBookingId)
+            }
+            if (data.coachBookingError) {
+              toast.warning('จองสนามสำเร็จ แต่บันทึกคิวโค้ชไม่สำเร็จ — เจ้าหน้าที่จะตรวจสอบให้')
+            }
             results.push(data)
           }
         } catch {
@@ -173,6 +216,16 @@ const validate = () => {
       setSubmittedBookings(results)
       setStep(5)
       toast.success(`จองสำเร็จ ${results.length} รายการ!`)
+      // จองครบทุกช่วงเวลาแล้ว → ล้างค่าโค้ช ไม่ให้ติดไปการจองครั้งถัดไป
+      if (coach && !hasError) {
+        try {
+          sessionStorage.removeItem('coach_id')
+        } catch {
+          // เข้าถึง sessionStorage ไม่ได้ — ข้ามไป
+        }
+        coachBookingIdsRef.current = {}
+        setCoach(null)
+      }
     }
     setIsLoading(false)
   }
@@ -257,6 +310,14 @@ const validate = () => {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">ค่าเช่าอุปกรณ์</span>
                 <span>฿{formatPrice(rentalPrice)}</span>
+              </div>
+            )}
+            {coachFee > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  ค่าโค้ช ({coach?.name} × {coachHours} ชม.)
+                </span>
+                <span>฿{formatPrice(coachFee)}</span>
               </div>
             )}
             <div className="flex items-center justify-between text-sm font-bold text-emerald-700 pt-1">

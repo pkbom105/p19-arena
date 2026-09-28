@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Booking } from '@prisma/client'
+import { attachCoachToBookings } from '@/lib/coach-ticket'
 
 /** ขนาดสลิปสูงสุด — ตรงกับฝั่ง UI (step-confirm / slip-upload-card) */
 const MAX_SLIP_BYTES = 300 * 1024
@@ -54,7 +55,8 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(bookings)
+    // แนบข้อมูลโค้ช (ชื่อ + จำนวนชั่วโมง) เพื่อให้ตั๋วแสดงรายละเอียดโค้ชได้
+    return NextResponse.json(await attachCoachToBookings(bookings))
   } catch (error) {
     console.error('Error fetching my bookings:', error)
     return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 })

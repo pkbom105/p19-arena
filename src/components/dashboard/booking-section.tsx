@@ -1,8 +1,9 @@
 'use client'
 
-import type { Dispatch, SetStateAction } from 'react'
+import { useMemo, type Dispatch, type SetStateAction } from 'react'
 import { CalendarDays, RefreshCw } from 'lucide-react'
 import { BookingTicket } from '@/components/booking/booking-ticket'
+import { buildTicketViews, mergeTicketView, type TicketView } from '@/lib/ticket-group'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BookingForm } from './booking-form'
@@ -24,6 +25,16 @@ interface BookingSectionProps {
 
 /** Booking Tickets — ตั๋วการจองทั้งหมด แก้ไข/ยกเลิก/คัดลอกลิงก์ได้ */
 export function BookingSection({ bookings, courts, timeSlots, editingBooking, setEditingBooking, handleUpdateBooking, handleCancelBooking, handleCopyTicketLink, refreshing, refreshBookings, saving }: BookingSectionProps) {
+  /**
+   * การ์ดยังเป็น "รายแถว" — ปุ่มแก้ไข/ยกเลิก/คัดลอกลิงก์ยึดแถวที่ผู้ใช้กดเหมือนเดิม
+   * แต่แสดงเวลา/ชั่วโมงรวม/โค้ชของ "ตั๋วใบรวม" ที่แถวนั้นอยู่ → ตรงกับตั๋วที่ลูกค้าเปิดดู
+   */
+  const viewByRowId = useMemo(() => {
+    const map = new Map<string, TicketView<BookingRow>>()
+    for (const view of buildTicketViews(bookings)) for (const row of view.rows) map.set(row.id, view)
+    return map
+  }, [bookings])
+
   return (
     <>
       {/* Customer Bookings Management */}
@@ -74,7 +85,7 @@ export function BookingSection({ bookings, courts, timeSlots, editingBooking, se
                 />
               ) : (
                 <BookingTicket
-                  booking={b}
+                  booking={mergeTicketView(b, viewByRowId.get(b.id))}
                   onEdit={() => setEditingBooking(b)}
                   onCancel={() => handleCancelBooking(b.id)}
                   onCopyLink={() => handleCopyTicketLink(b)}

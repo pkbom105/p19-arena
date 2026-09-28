@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Search, Loader2, CalendarX2, Phone, Ticket } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
 import { BookingTicket, type TicketBooking } from '@/components/booking/booking-ticket'
+import { buildTicketViews, mergeTicketView } from '@/lib/ticket-group'
 import { TicketQrScanner } from '@/components/booking/ticket-qr-scanner'
 import { SlipUploadCard } from '@/components/booking/slip-upload-card'
 import { Button } from '@/components/ui/button'
@@ -17,9 +18,18 @@ export default function CheckBookingPage() {
   const [searched, setSearched] = useState(false)
   const [searchedByCode, setSearchedByCode] = useState(false)
   const [bookings, setBookings] = useState<TicketBooking[]>([])
+  /** id ของแถวที่ค้นเจอจริง — ค้นด้วยรหัสจะเจอแถวเดียว แต่แสดงเป็น "ตั๋วใบรวม" ของกลุ่มแถวนั้น */
+  const [foundIds, setFoundIds] = useState<string[]>([])
 
   // รหัสตั๋ว: บังคับเป็นตัวพิมพ์ใหญ่เสมอ (พิมพ์เล็ก → เปลี่ยนเป็นพิมพ์ใหญ่อัตโนมัติ)
   const code = codeInput.trim().toUpperCase()
+
+  /**
+   * ตั๋วที่จะแสดง = กลุ่ม "สนามเดิม + วันเดิม + ผู้จองเดิม + เวลาติดกัน" (ใบเดียวต่อกลุ่ม)
+   * — ค้นด้วยเบอร์: แสดงทุกใบของเบอร์นั้น / ค้นด้วยรหัส: แสดงเฉพาะใบที่มีรหัสนั้น แต่เป็นใบรวมทั้งใบ
+   */
+  const found = new Set(foundIds)
+  const views = buildTicketViews(bookings).filter((v) => found.size === 0 || v.rows.some((row) => found.has(row.id)))
 
   const handleLookup = async (customCode?: string) => {
     const phoneQ = phone.trim()
@@ -35,9 +45,19 @@ export default function CheckBookingPage() {
         : `playerPhone=${encodeURIComponent(phoneQ)}`
       const res = await fetch(apiUrl(`/api/my-bookings?${qs}`))
       const data = await res.json()
-      setBookings(Array.isArray(data) ? data : [])
+      const rows: TicketBooking[] = Array.isArray(data) ? data : []
+      setFoundIds(rows.map((r) => r.id))
+      // ค้นด้วยรหัสตั๋วจะได้แถวเดียว — ดึงแถวอื่นของเบอร์เดียวกันมาด้วย เพื่อแสดง "ตั๋วใบรวม" ให้ครบทั้งใบ
+      if (byCode && rows.length === 1 && rows[0]?.playerPhone) {
+        const sibRes = await fetch(apiUrl(`/api/my-bookings?playerPhone=${encodeURIComponent(rows[0].playerPhone)}`))
+        const sibData = await sibRes.json()
+        setBookings(Array.isArray(sibData) ? sibData : rows)
+      } else {
+        setBookings(rows)
+      }
     } catch {
       setBookings([])
+      setFoundIds([])
     } finally {
       setSearched(true)
       setLoading(false)
@@ -137,23 +157,29 @@ export default function CheckBookingPage() {
           </div>
         )}
 
-        {bookings.length > 0 && (
+        {views.length > 0 && (
           <>
-            <p className="text-xs text-muted-foreground">พบการจอง {bookings.length} รายการ</p>
+            <p className="text-xs text-muted-foreground">
+              พบตั๋ว {views.length} ใบ{bookings.length > views.length ? ` (จาก ${bookings.length} รายการ)` : ''}
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
-              {bookings.map((b) => (
-                <div key={b.id} className="space-y-1.5">
-                  <BookingTicket booking={b} hideActions />
-                  <Link
-                    href={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
-                  >
-                    เปิดหน้าตั๋วออนไลน์ →
-                  </Link>
-                </div>
-              ))}
+              {views.map((view) => {
+                const lead = view.lead
+                return (
+                  <div key={lead.id} className="space-y-1.5">
+                    {/* ใบเดียวต่อกลุ่มเวลาติดกัน — เวลา/ชั่วโมง/โค้ชเป็นของทั้งใบ, รหัสใช้ของแถวแรก */}
+                    <BookingTicket booking={mergeTicketView(lead, view)} hideActions />
+                    <Link
+                      href={apiUrl(`/ticket/${lead.ticketCode || lead.id}`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
+                    >
+                      เปิดหน้าตั๋วออนไลน์ →
+                    </Link>
+                  </div>
+                )
+              })}
             </div>
           </>
         )}

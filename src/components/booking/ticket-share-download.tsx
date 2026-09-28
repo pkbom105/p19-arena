@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { toPng } from 'html-to-image'
 import type { TicketBooking } from '@/components/booking/booking-ticket'
-import { BookingTicket } from '@/components/booking/booking-ticket'
+import { BookingTicket, getTicketCode } from '@/components/booking/booking-ticket'
 
 /** ปุ่มแชร์ลิงก์ + ดาวน์โหลดตั๋ว (มีตัวหนังสือ) สำหรับหน้า /ticket/[id] */
 export function TicketShareDownload({
@@ -38,7 +38,8 @@ export function TicketShareDownload({
     try {
       const dataUrl = await toPng(captureRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' })
       const link = document.createElement('a')
-      link.download = `ticket-${booking.id.slice(-8).toUpperCase()}.png`
+      // ชื่อไฟล์ = รหัสตั๋วที่แสดงบนใบ (ตั๋วที่รวมช่องติดกันใช้รหัสใบแรก) → ในกลุ่มเดียวกันได้ชื่อไฟล์เดียวกัน
+      link.download = `ticket-${getTicketCode(booking)}.png`
       link.href = dataUrl
       link.click()
       toast.success('ดาวน์โหลดตั๋วสำเร็จ')

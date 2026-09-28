@@ -4,7 +4,7 @@ import { apiUrl } from '@/lib/api'
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, format, isToday, isTomorrow, startOfToday } from 'date-fns'
 import { th } from 'date-fns/locale'
-import { CalendarDays, CalendarIcon, Check, Clock, MapPin } from 'lucide-react'
+import { CalendarDays, CalendarIcon, Check, Clock, GraduationCap, MapPin, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getSlotPrice, type PriceRule } from '@/lib/price'
 import { isSlotPassed, isSlotStarted } from '@/lib/slot-time'
 import { useBookingStore, type Court, type TimeSlot } from '@/store/booking-store'
+import { COACH_PACKAGES } from '@/components/activity/coaches'
 
 const THAI_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
 /** ชื่อวันแบบสั้น — ใช้บนจอแค่ (แถบวันที่เป็น 7 คอลัมน์) */
@@ -52,6 +53,13 @@ const OCCUPIED_LABEL: Record<string, string> = {
 
 const cellKey = (courtId: string, slotId: string) => `${courtId}|${slotId}`
 
+/** จำนวนชั่วโมงของสล็อต (endTime - startTime) — ใช้คิดค่าโค้ชต่อชั่วโมง */
+function slotHours(slot: TimeSlot) {
+  const [sh, sm] = slot.startTime.split(':').map(Number)
+  const [eh, em] = slot.endTime.split(':').map(Number)
+  return (eh * 60 + em - (sh * 60 + sm)) / 60
+}
+
 /**
  * เลือกสนาม + เวลา จบในหน้าเดียว — ตาราง "เวลา × สนาม" แบบ POS
  * กดช่องว่างเพื่อเลือกได้หลายช่อง/หลายสนามพร้อมกัน แล้วกด "ถัดไป" เพื่อไปหน้าสรุป
@@ -62,6 +70,7 @@ export function StepGrid() {
     courts, setCourts, selectedDate, setSelectedDate,
     selectedCells, toggleCell, clearCells, addBookingItems,
     priceRules, setPriceRules, bookingItems, setStep,
+    coach, setCoach,
   } = useBookingStore()
 
   const [loading, setLoading] = useState(true)
@@ -70,6 +79,28 @@ export function StepGrid() {
   const [dayBookings, setDayBookings] = useState<GridBooking[]>([])
   // เดินเวลาทุก 30 วิ — ช่องที่เลย startTime + 20 นาทีปิดรับจองเองโดยไม่ต้องรีเฟรช
   const [now, setNow] = useState(() => new Date())
+
+  // โค้ชที่ส่งมาจากหน้า /activity/coach (?coach= → sessionStorage ให้รอด LINE redirect)
+  // เก็บลง store เพื่อให้ขั้นสรุปยอด/ยืนยัน คิดเงินรวมค่าโค้ชได้
+  useEffect(() => {
+    try {
+      const id = sessionStorage.getItem('coach_id')
+      const found = id ? COACH_PACKAGES.find((c) => c.id === id) : undefined
+      if (found) setCoach({ id: found.id, name: found.name, pricePerHour: found.pricePerHour })
+    } catch {
+      setCoach(null)
+    }
+  }, [setCoach])
+
+  /** ยกเลิกโค้ช — ล้างทั้ง sessionStorage และ store เพื่อไม่ให้คิดเงินรวม */
+  const handleClearCoach = () => {
+    try {
+      sessionStorage.removeItem('coach_id')
+    } catch {
+      // เข้าถึง sessionStorage ไม่ได้ — ข้ามไป
+    }
+    setCoach(null)
+  }
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000)
@@ -169,6 +200,19 @@ export function StepGrid() {
     return sum
   }, [selectedCells, courts, daySlots, priceRules, dayOfWeek])
 
+  /** ชั่วโมงรวมของช่องที่เลือกอยู่ (ใช้คิดค่าโค้ชต่อชั่วโมง) */
+  const selectedHours = useMemo(() => {
+    let hours = 0
+    for (const key of selectedCells) {
+      const slot = daySlots.find((s) => s.id === key.split('|')[1])
+      if (slot) hours += slotHours(slot)
+    }
+    return hours
+  }, [selectedCells, daySlots])
+
+  /** ค่าโค้ช = ราคา/ชม. × ชั่วโมงที่เลือก (คิดรวมกับค่าสนามในยอดถัดไป) */
+  const coachFee = coach ? coach.pricePerHour * selectedHours : 0
+
   /** กด "ถัดไป" — จัดกลุ่มช่องที่เลือกตามสนาม แล้วเก็บลงตะกร้า */
   const handleNext = () => {
     const byCourt = new Map<string, { court: Court; timeSlots: TimeSlot[] }>()
@@ -216,6 +260,23 @@ export function StepGrid() {
         <CalendarDays className="h-5 w-5 text-emerald-600" />
         <h2 className="text-lg font-semibold">จองสนาม — เลือกวัน / สนาม / เวลา</h2>
       </div>
+
+      {coach && (
+        <div className="flex">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
+            <GraduationCap className="h-3.5 w-3.5" />
+            จองพร้อมโค้ช: {coach.name}
+            <button
+              type="button"
+              onClick={handleClearCoach}
+              aria-label="ยกเลิกโค้ช"
+              className="ml-0.5 rounded-full p-0.5 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* แถบวันที่: 21 วัน + ปฏิทิน (จองล่วงหน้าได้ 42 วัน) */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -378,11 +439,27 @@ export function StepGrid() {
       {/* แถบสรุปด้านล่าง — กดถัดไปเพื่อไปหน้าสรุปรายการ */}
       {selectedCells.length > 0 && (
         <div className="sticky bottom-0 bg-background/90 backdrop-blur-sm border-t pt-3 pb-1 -mx-4 px-4 mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">
-              เลือกแล้ว <span className="font-semibold text-emerald-600">{selectedCells.length}</span> ช่วงเวลา
-            </span>
-            <span className="text-sm font-semibold text-emerald-700">฿{total.toLocaleString()}</span>
+          <div className="mb-2 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-muted-foreground">
+                เลือกแล้ว <span className="font-semibold text-emerald-600">{selectedCells.length}</span> ช่วงเวลา
+              </span>
+              <span className="text-sm font-semibold text-emerald-700">฿{total.toLocaleString()}</span>
+            </div>
+            {coach && (
+              <>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="truncate text-muted-foreground">
+                    ค่าโค้ช {coach.name} ({selectedHours} ชม. × ฿{coach.pricePerHour.toLocaleString()})
+                  </span>
+                  <span className="text-muted-foreground">฿{coachFee.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-emerald-800">รวมทั้งสิ้น</span>
+                  <span className="text-base font-bold text-emerald-700">฿{(total + coachFee).toLocaleString()}</span>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={clearCells}>

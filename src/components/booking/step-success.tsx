@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useBookingStore } from '@/store/booking-store'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { groupTicketsByCourtAndContiguity } from '@/lib/ticket-group'
 
 interface BookingResult {
   id: string
@@ -49,7 +50,14 @@ export function StepSuccess() {
   const [lookupLoading, setLookupLoading] = useState(false)
 
   const bookings = submittedBookings as BookingResult[]
-  const firstId = bookings[0]?.ticketCode || bookings[0]?.id || ''
+  /**
+   * รวมตั๋วเป็นใบเดียวต่อ "สนามเดิม + วันเดิม + เวลาติดกัน"
+   * ใช้ตัวช่วยชุดเดียวกับหน้าตั๋ว /ticket/[id] → จำนวนใบและการแสดงผลตรงกัน
+   */
+  const ticketGroups = useMemo(() => groupTicketsByCourtAndContiguity(bookings), [bookings])
+  const lookupGroups = useMemo(() => groupTicketsByCourtAndContiguity(myBookings), [myBookings])
+  const firstGroup = ticketGroups[0]
+  const firstId = firstGroup ? firstGroup[0].ticketCode || firstGroup[0].id : ''
 
   const handleNewBooking = () => {
     resetBookingForm()
@@ -95,7 +103,7 @@ export function StepSuccess() {
             <CardTitle className="text-base flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span>ตั๋วการจองของคุณ</span>
-                <Badge className="bg-emerald-600">{bookings.length} ใบ</Badge>
+                <Badge className="bg-emerald-600">{ticketGroups.length} ใบ</Badge>
               </div>
               <span className="text-[11px] font-normal text-emerald-600 break-all">
                 {typeof window !== 'undefined' ? `${window.location.origin}${BASE_PATH}/ticket/${firstId}` : ''}
@@ -103,26 +111,30 @@ export function StepSuccess() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {bookings.map((b) => (
-              <div key={b.id} className="space-y-1.5">
-                <div className="rounded-xl border border-emerald-100 overflow-hidden">
-                  <iframe
-                    src={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
-                    title={`ตั๋ว ${b.id}`}
-                    className="w-full h-[700px] border-0 bg-emerald-50/40"
-                    loading="lazy"
-                  />
+            {ticketGroups.map((group) => {
+              const lead = group[0]
+              const code = lead.ticketCode || lead.id
+              return (
+                <div key={lead.id} className="space-y-1.5">
+                  <div className="rounded-xl border border-emerald-100 overflow-hidden">
+                    <iframe
+                      src={apiUrl(`/ticket/${code}`)}
+                      title={`ตั๋ว ${code}`}
+                      className="w-full h-[700px] border-0 bg-emerald-50/40"
+                      loading="lazy"
+                    />
+                  </div>
+                  <a
+                    href={apiUrl(`/ticket/${code}`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
+                  >
+                    เปิดหน้าตั๋วออนไลน์ → {`${typeof window !== 'undefined' ? window.location.origin : ''}/ticket/${code}`}
+                  </a>
                 </div>
-                <a
-                  href={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
-                >
-                  เปิดหน้าตั๋วออนไลน์ → {`${typeof window !== 'undefined' ? window.location.origin : ''}/ticket/${b.ticketCode || b.id}`}
-                </a>
-              </div>
-            ))}
+              )
+            })}
           </CardContent>
         </Card>
       )}
@@ -151,26 +163,30 @@ export function StepSuccess() {
             </div>
             {myBookings.length > 0 && (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {myBookings.map((b) => (
-                  <div key={b.id} className="space-y-1.5">
-                    <div className="rounded-xl border border-emerald-100 overflow-hidden">
-                      <iframe
-                        src={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
-                        title={`ตั๋ว ${b.id}`}
-                        className="w-full h-[520px] border-0 bg-emerald-50/40"
-                        loading="lazy"
-                      />
+                {lookupGroups.map((group) => {
+                  const lead = group[0]
+                  const code = lead.ticketCode || lead.id
+                  return (
+                    <div key={lead.id} className="space-y-1.5">
+                      <div className="rounded-xl border border-emerald-100 overflow-hidden">
+                        <iframe
+                          src={apiUrl(`/ticket/${code}`)}
+                          title={`ตั๋ว ${code}`}
+                          className="w-full h-[520px] border-0 bg-emerald-50/40"
+                          loading="lazy"
+                        />
+                      </div>
+                      <a
+                        href={apiUrl(`/ticket/${code}`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
+                      >
+                        เปิดหน้าตั๋วออนไลน์ → {`${typeof window !== 'undefined' ? window.location.origin : ''}/ticket/${code}`}
+                      </a>
                     </div>
-                    <a
-                      href={apiUrl(`/ticket/${b.ticketCode || b.id}`)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
-                    >
-                      เปิดหน้าตั๋วออนไลน์ → {`${typeof window !== 'undefined' ? window.location.origin : ''}/ticket/${b.ticketCode || b.id}`}
-                    </a>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
             {myBookings.length === 0 && lookupPhone && !lookupLoading && (

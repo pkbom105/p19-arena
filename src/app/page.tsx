@@ -63,6 +63,18 @@ export default function BookingPage() {
 
     // Handle LINE Login callback
     const params = new URLSearchParams(window.location.search)
+
+    // มาจากหน้า /activity/coach (จองโค้ช) — จำรหัสโค้ชไว้ข้าม LINE redirect
+    // (หลัง login สำเร็จ URL ถูก replaceState เป็น '/' → query หาย ถ้าไม่เก็บไว้)
+    const coachParam = params.get('coach')
+    if (coachParam) {
+      try {
+        sessionStorage.setItem('coach_id', coachParam)
+      } catch {
+        // sessionStorage ถูกปิด — จองสนามต่อได้ปกติ แค่ไม่มีโค้ชต่อท้าย
+      }
+    }
+
     const code = params.get('code')
     const state = params.get('state')
 

@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  CalendarDays, LayoutDashboard, MapPin, MessageCircle, Receipt, Wrench,
+  CalendarDays, GraduationCap, LayoutDashboard, MapPin, MessageCircle, Receipt, Trophy, Wrench,
 } from 'lucide-react'
 
 export const DAY_OPTIONS = [
@@ -35,6 +35,8 @@ export const SECTIONS = [
   { id: 'equipment', label: 'Equipment', icon: Wrench },
   { id: 'booking', label: 'Booking Tickets', icon: CalendarDays },
   { id: 'slip', label: 'Slip Upload', icon: Receipt },
+  { id: 'coach', label: 'โค้ช', icon: GraduationCap },
+  { id: 'activity', label: 'กิจกรรม', icon: Trophy },
   { id: 'line', label: 'LINE Credential', icon: MessageCircle },
 ] as const
 

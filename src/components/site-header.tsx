@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Dumbbell, Phone, Settings, CalendarPlus, Search, LayoutDashboard } from 'lucide-react'
+import { Dumbbell, Phone, Settings, CalendarPlus, Search, Trophy, LayoutDashboard } from 'lucide-react'
 
 const MENU_ITEMS = [
   { href: '/', label: 'จองสนาม', icon: CalendarPlus },
   { href: '/check', label: 'ตรวจสอบการจอง', icon: Search },
+  { href: '/activity', label: 'กิจกรรม', icon: Trophy },
 ]
 
 /** Header ร่วม: โลโก้ + เมนูหลัก (จองสนาม / ตรวจสอบการจอง) + ตั้งค่า/ติดต่อเรา */
@@ -61,7 +62,7 @@ export function SiteHeader() {
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={
-                  'flex flex-1 h-36 flex-col items-center justify-center gap-2 rounded-xl px-3 font-medium transition-colors ' +
+                  'flex flex-1 h-36 flex-col items-center justify-center gap-2 rounded-xl px-2 font-medium transition-colors ' +
                   (active
                     ? 'bg-emerald-500 text-white shadow-sm'
                     : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100')
