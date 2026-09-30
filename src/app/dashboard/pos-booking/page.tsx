@@ -18,7 +18,7 @@ import { NewBookingDialog } from '@/components/pos/new-booking-dialog'
 import { EditBookingDialog } from '@/components/pos/edit-booking-dialog'
 
 /**
- * POS หน้าเคาน์เตอร์ (/dashboard/pos) — container
+ * POS หน้าเคาน์เตอร์ (/dashboard/pos-booking) — container
  * state + data fetching อยู่ที่นี่, UI แยกเป็น components/pos/*
  */
 export default function PosPage() {

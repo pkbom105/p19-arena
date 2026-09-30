@@ -1,11 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import { Dumbbell, LayoutDashboard, Settings as SettingsIcon, Store } from 'lucide-react'
+import { BarChart3, Dumbbell, LayoutDashboard, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
+export type PosNavId = 'pos-booking' | 'pos-shop' | 'shop-setting' | 'shop-report'
+
+/** เมนู ADMIN ของกลุ่มหน้า POS (เรียงตามที่แสดงบนจอ) */
+const POS_NAV = [
+  { id: 'pos-booking', href: '/dashboard/pos-booking', label: 'pos-booking', icon: Store },
+  { id: 'pos-shop', href: '/dashboard/pos-shop', label: 'pos-shop', icon: ShoppingCart },
+  { id: 'shop-setting', href: '/dashboard/shop-setting', label: 'shop-setting', icon: Tags },
+  { id: 'shop-report', href: '/dashboard/shop-report', label: 'shop-report', icon: BarChart3 },
+] as const
+
 /** Side menu (desktop) — โครงเดียวกับหน้า Dashboard */
-export function PosSidebar() {
+export function PosSidebar({ active = 'pos-booking' }: { active?: PosNavId }) {
   return (
     <aside className="w-56 shrink-0 bg-white border-r hidden lg:flex flex-col gap-1 px-3 py-4 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
       <Link
@@ -22,9 +32,21 @@ export function PosSidebar() {
       >
         <LayoutDashboard className="h-4 w-4" /> Dashboard
       </Link>
-      <span className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-emerald-500 text-white shadow-sm">
-        <Store className="h-4 w-4" /> POS หน้าเคาน์เตอร์
-      </span>
+      {POS_NAV.map(({ id, href, label, icon: Icon }) =>
+        active === id ? (
+          <span key={id} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-emerald-500 text-white shadow-sm">
+            <Icon className="h-4 w-4" /> {label}
+          </span>
+        ) : (
+          <Link
+            key={id}
+            href={href}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+          >
+            <Icon className="h-4 w-4" /> {label}
+          </Link>
+        )
+      )}
       <Link
         href="/settings"
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
@@ -36,7 +58,7 @@ export function PosSidebar() {
 }
 
 /** Side menu (mobile) */
-export function PosMobileNav() {
+export function PosMobileNav({ active = 'pos-booking' }: { active?: PosNavId }) {
   return (
     <nav className="lg:hidden flex gap-1 overflow-x-auto px-4 py-2 bg-white border-b">
       <Link href="/" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 whitespace-nowrap">
@@ -45,9 +67,17 @@ export function PosMobileNav() {
       <Link href="/dashboard" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted whitespace-nowrap">
         <LayoutDashboard className="h-4 w-4" /> Dashboard
       </Link>
-      <span className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white whitespace-nowrap">
-        <Store className="h-4 w-4" /> POS
-      </span>
+      {POS_NAV.map(({ id, href, label, icon: Icon }) =>
+        active === id ? (
+          <span key={id} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white whitespace-nowrap">
+            <Icon className="h-4 w-4" /> {label}
+          </span>
+        ) : (
+          <Link key={id} href={href} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted whitespace-nowrap">
+            <Icon className="h-4 w-4" /> {label}
+          </Link>
+        )
+      )}
       <Link href="/settings" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted whitespace-nowrap">
         <SettingsIcon className="h-4 w-4" /> Settings
       </Link>

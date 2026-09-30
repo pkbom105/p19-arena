@@ -144,3 +144,81 @@ model ErrorLog {
   source    String   @default("server") // server | client | middleware
   createdAt DateTime @default(now())
 }
+
+// สินค้าของร้าน (POS Shop) — ของ "ขาย" แยกจาก RentalEquipment ที่เป็นของ "เช่า"
+model ShopProduct {
+  id        String   @id @default(cuid())
+  name      String
+  nameEn    String?
+  /** อ้างถึง ShopCategory.id (เช่น cloth | racket | food) — เพิ่มหมวดใหม่ได้ที่หน้า /dashboard/shop-setting */
+  category  String
+  /** ราคาขายต่อหน่วย (บาท) */
+  price     Int
+  /** จำนวนสต็อกเริ่มต้น (กรอกที่หน้าตั้งค่า) — คงเหลือ = จำนวนเริ่มต้น − จำนวนที่ขายได้จริงจากบิล (ติดลบได้) */
+  stockStart Int     @default(0)
+  /** ราคาทุนต่อหน่วย (บาท) — กำไรต่อหน่วย = ราคาขาย − ราคาทุน */
+  costPrice  Int     @default(0)
+  unit      String   @default("ชิ้น")
+  emoji     String?
+  /** ปิดใช้งาน = ซ่อนจากหน้าแคชเชียร์ (soft delete — ห้ามลบจริงเพราะบิลเก้าอ้างอิง) */
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, isActive, sortOrder])
+}
+
+// หมวดสินค้าของร้าน (POS Shop) — เพิ่มหมวดใหม่ได้จากหน้า /dashboard/shop-setting
+// id เป็นคีย์อ้างอิงที่เก็บไว้ใน ShopProduct.category (ไม่ผูก FK เพื่อไม่กระทบแถวสินค้าเดิม)
+model ShopCategory {
+  id        String   @id // เช่น cloth | racket | food
+  label     String
+  labelEn   String?
+  emoji     String?
+  /** ปิดใช้งาน = ซ่อนจากแท็บ/ตัวเลือก (ไม่ลบ เพราะสินค้าเดิมยังอ้างอิง id นี้) */
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+// ใบเสร็จที่ปิดการขายจากหน้าแคชเชียร์ (/dashboard/pos-shop) — บันทึกจริงลง DB แล้ว
+// (ก่อนหน้านี้เป็น state ในหน้าจอเท่านั้น → บิลหายเมื่อ refresh) · no = เลขที่บิลรันต่อวัน
+model ShopReceipt {
+  id        String   @id @default(cuid())
+  /** เลขที่บิลที่แสดงให้ลูกค้า รูปแบบ S-YYMM### (YYMM = ปี/เดือนที่ขาย · ### = running 3 หลักรีเซ็ตรายเดือน) */
+  code      String   @unique
+  no        Int
+  /** ยอดรวมสินค้าก่อนหักส่วนลด (บาท) */
+  subtotal  Int
+  discount  Int      @default(0)
+  /** ยอดสุทธิที่เก็บจากลูกค้า */
+  total     Int
+  /** cash | transfer */
+  method    String
+  received  Int
+  change    Int      @default(0)
+  /** จำนวนชิ้นรวมในบิล */
+  itemCount Int
+  soldAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+  items     ShopReceiptItem[]
+
+  @@index([soldAt])
+}
+
+// รายการสินค้าในใบเสร็จ 1 ใบ (เก็บชื่อ/ราคา ณ วันที่ขาย — สินค้าถูกลบทีหลังก็ยังดูย้อนหลังได้)
+model ShopReceiptItem {
+  id        String      @id @default(cuid())
+  receiptId String
+  receipt   ShopReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  name      String
+  qty       Int
+  price     Int
+
+  @@index([receiptId])
+}
+

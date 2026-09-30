@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { DEFAULT_SHOP_PRODUCTS } from '@/components/pos-shop/catalog'
 
 export async function POST() {
   try {
@@ -47,6 +48,23 @@ export async function POST() {
     await db.rentalEquipment.deleteMany({
       where: { name: { startsWith: 'บอล' } },
     })
+
+    // สินค้าร้าน POS (idempotent — seed เฉพาะเมื่อยังไม่มีสินค้าเลย)
+    // ชุดเริ่มต้นมาจาก DEFAULT_SHOP_PRODUCTS (แหล่งเดียวกับ fallback ของหน้าแคชเชียร์)
+    const shopCount = await db.shopProduct.count()
+    if (shopCount === 0) {
+      await db.shopProduct.createMany({
+        data: DEFAULT_SHOP_PRODUCTS.map((p, i) => ({
+          name: p.name,
+          nameEn: p.nameEn,
+          category: p.category,
+          price: p.price,
+          unit: p.unit,
+          emoji: p.emoji,
+          sortOrder: i + 1,
+        })),
+      })
+    }
 
     // Default price rules (idempotent — สร้างเฉพาะเมื่อยังไม่มีกฎราคาเลย)
     // จันทร์-ศุกร์ 07:00-22:00 = 300 ทุกช่วง / เสาร์-อาทิตย์ 07:00-22:00 = 400 ทุกช่วง

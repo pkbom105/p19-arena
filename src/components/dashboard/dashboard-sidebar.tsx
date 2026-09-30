@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Dumbbell, Settings as SettingsIcon, Store } from 'lucide-react'
+import { BarChart3, Dumbbell, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { SECTIONS, type SectionId } from './helpers'
 
@@ -21,10 +21,28 @@ export function DashboardSidebar({ section, onSelect }: DashboardSidebarProps) {
         <Dumbbell className="h-4 w-4" /> Home / Booking
       </Link>
       <Link
-        href="/dashboard/pos"
+        href="/dashboard/pos-booking"
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
       >
-        <Store className="h-4 w-4" /> POS หน้าเคาน์เตอร์
+        <Store className="h-4 w-4" /> pos-booking
+      </Link>
+      <Link
+        href="/dashboard/pos-shop"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
+      >
+        <ShoppingCart className="h-4 w-4" /> pos-shop
+      </Link>
+      <Link
+        href="/dashboard/shop-setting"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
+      >
+        <Tags className="h-4 w-4" /> shop-setting
+      </Link>
+      <Link
+        href="/dashboard/shop-report"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
+      >
+        <BarChart3 className="h-4 w-4" /> shop-report
       </Link>
       <Link
         href="/settings"

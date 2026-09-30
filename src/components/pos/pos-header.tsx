@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button'
 import { formatThaiDate } from './helpers'
 
 /** Top bar — กลับ Dashboard, ชื่อหน้า, วันที่ที่เลือก, รีเฟรช */
-export function PosHeader({ date, refreshing, onRefresh }: {
+export function PosHeader({ date, refreshing, onRefresh, title = 'pos-booking' }: {
   date: string
   refreshing: boolean
-  onRefresh: () => void
+  onRefresh?: () => void
+  title?: string
 }) {
   const router = useRouter()
   return (
@@ -20,12 +21,14 @@ export function PosHeader({ date, refreshing, onRefresh }: {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Store className="h-6 w-6 text-emerald-600 shrink-0" />
-        <h1 className="font-bold text-lg whitespace-nowrap">POS หน้าเคาน์เตอร์</h1>
+        <h1 className="font-bold text-lg whitespace-nowrap">{title}</h1>
         <Badge variant="secondary" className="text-xs hidden md:inline-flex">{formatThaiDate(date)}</Badge>
 
-        <Button variant="outline" size="icon" className="h-8 w-8 ml-auto" onClick={onRefresh} disabled={refreshing} aria-label="รีเฟรช">
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-        </Button>
+        {onRefresh && (
+          <Button variant="outline" size="icon" className="h-8 w-8 ml-auto" onClick={onRefresh} disabled={refreshing} aria-label="รีเฟรช">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        )}
       </div>
     </header>
   )

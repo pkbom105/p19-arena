@@ -19,6 +19,16 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // URL เก่า /dashboard/pos → /dashboard/pos-booking (กันลิงก์/bookmark เก่าเจอ 404)
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/pos",
+        destination: "/dashboard/pos-booking",
+        permanent: false,
+      },
+    ];
+  },
   reactStrictMode: false,
 };
 
