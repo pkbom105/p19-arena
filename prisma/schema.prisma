@@ -160,6 +160,8 @@ model ShopProduct {
   costPrice  Int     @default(0)
   unit      String   @default("ชิ้น")
   emoji     String?
+  /** บาร์โค้ดสินค้า (EAN/UPC หรือรหัสภายในร้าน) — เว้นว่างได้ */
+  barcode   String?
   /** ปิดใช้งาน = ซ่อนจากหน้าแคชเชียร์ (soft delete — ห้ามลบจริงเพราะบิลเก้าอ้างอิง) */
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)

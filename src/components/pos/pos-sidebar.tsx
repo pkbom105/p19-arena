@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { BarChart3, Dumbbell, LayoutDashboard, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
+import { BarChart3, Dumbbell, LayoutDashboard, ScanBarcode, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
-export type PosNavId = 'pos-booking' | 'pos-shop' | 'shop-setting' | 'shop-report'
+export type PosNavId = 'pos-booking' | 'pos-shop' | 'shop-setting' | 'shop-report' | 'barcode'
 
 /** เมนู ADMIN ของกลุ่มหน้า POS (เรียงตามที่แสดงบนจอ) */
 const POS_NAV = [
@@ -12,6 +12,8 @@ const POS_NAV = [
   { id: 'pos-shop', href: '/dashboard/pos-shop', label: 'pos-shop', icon: ShoppingCart },
   { id: 'shop-setting', href: '/dashboard/shop-setting', label: 'shop-setting', icon: Tags },
   { id: 'shop-report', href: '/dashboard/shop-report', label: 'shop-report', icon: BarChart3 },
+  // เมนูบาร์โค้ด — อยู่ต่อจาก shop-report (หน้า /dashboard/barcode)
+  { id: 'barcode', href: '/dashboard/barcode', label: 'barcode', icon: ScanBarcode },
 ] as const
 
 /** Side menu (desktop) — โครงเดียวกับหน้า Dashboard */

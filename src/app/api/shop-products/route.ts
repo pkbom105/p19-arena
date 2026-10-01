@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, nameEn, category, price, unit, emoji, sortOrder, isActive, stockStart, costPrice } = body
+    const { name, nameEn, category, price, unit, emoji, barcode, sortOrder, isActive, stockStart, costPrice } = body
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'กรุณากรอกชื่อสินค้า' }, { status: 400 })
@@ -58,6 +58,9 @@ export async function POST(request: NextRequest) {
     if (costPrice !== undefined && (typeof costPrice !== 'number' || costPrice < 0)) {
       return NextResponse.json({ error: 'ราคาทุนต้องเป็นตัวเลขไม่ติดลบ' }, { status: 400 })
     }
+    if (barcode !== undefined && barcode !== null && typeof barcode !== 'string') {
+      return NextResponse.json({ error: 'บาร์โค้ดต้องเป็นข้อความ' }, { status: 400 })
+    }
 
     const item = await db.shopProduct.create({
       data: {
@@ -69,6 +72,7 @@ export async function POST(request: NextRequest) {
         costPrice: costPrice ?? 0,
         unit: unit?.trim() || 'ชิ้น',
         emoji: emoji?.trim() || null,
+        barcode: typeof barcode === 'string' ? barcode.trim() || null : null,
         sortOrder: sortOrder ?? 0,
         isActive: isActive ?? true,
       },
@@ -84,7 +88,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, nameEn, category, price, unit, emoji, sortOrder, isActive, stockStart, costPrice } = body
+    const { id, name, nameEn, category, price, unit, emoji, barcode, sortOrder, isActive, stockStart, costPrice } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Shop product ID is required' }, { status: 400 })
@@ -101,6 +105,9 @@ export async function PUT(request: NextRequest) {
     if (costPrice !== undefined && (typeof costPrice !== 'number' || costPrice < 0)) {
       return NextResponse.json({ error: 'ราคาทุนต้องเป็นตัวเลขไม่ติดลบ' }, { status: 400 })
     }
+    if (barcode !== undefined && barcode !== null && typeof barcode !== 'string') {
+      return NextResponse.json({ error: 'บาร์โค้ดต้องเป็นข้อความ' }, { status: 400 })
+    }
 
     const item = await db.shopProduct.update({
       where: { id },
@@ -113,6 +120,7 @@ export async function PUT(request: NextRequest) {
         ...(costPrice !== undefined ? { costPrice } : {}),
         ...(unit !== undefined ? { unit: unit?.trim() || 'ชิ้น' } : {}),
         ...(emoji !== undefined ? { emoji: emoji?.trim() || null } : {}),
+        ...(barcode !== undefined ? { barcode: typeof barcode === 'string' ? barcode.trim() || null : null } : {}),
         ...(sortOrder !== undefined ? { sortOrder } : {}),
         ...(isActive !== undefined ? { isActive } : {}),
       },

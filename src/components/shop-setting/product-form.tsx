@@ -31,6 +31,7 @@ export function ProductForm({ initial, onSave, onCancel, saving, categories = SH
     costPrice: initial.costPrice ?? 0,
     unit: initial.unit || 'ชิ้น',
     emoji: initial.emoji || '',
+    barcode: initial.barcode || '',
     sortOrder: initial.sortOrder ?? 0,
     isActive: initial.isActive ?? true,
   })
@@ -72,6 +73,17 @@ export function ProductForm({ initial, onSave, onCancel, saving, categories = SH
               onChange={(e) => set('nameEn', e.target.value)}
               placeholder="P19 T-Shirt"
               className="h-8 text-sm"
+            />
+          </div>
+          <div className="col-span-2 space-y-1.5">
+            <Label className="text-xs text-muted-foreground" htmlFor="shop-barcode">บาร์โค้ด</Label>
+            <Input
+              id="shop-barcode"
+              aria-label="บาร์โค้ด"
+              value={form.barcode}
+              onChange={(e) => set('barcode', e.target.value)}
+              placeholder="8851234567890 (เว้นว่างได้)"
+              className="h-8 text-sm tabular-nums"
             />
           </div>
           <div className="space-y-1.5">
