@@ -13,6 +13,7 @@ import { ProductGrid, type ShopCategoryFilter } from '@/components/pos-shop/prod
 import { CartPanel, type DiscountType } from '@/components/pos-shop/cart-panel'
 import { CheckoutDialog } from '@/components/pos-shop/checkout-dialog'
 import { ReceiptDialog } from '@/components/pos-shop/receipt-dialog'
+import { CoachBookingDialog } from '@/components/pos-shop/coach-booking-dialog'
 import { RecentBills, type RecentBill } from '@/components/pos-shop/recent-bills'
 import type { CartLine, PaymentMethod, ShopBill, ShopProduct } from '@/components/pos-shop/types'
 
@@ -30,6 +31,9 @@ export default function PosShopPage() {
   const [category, setCategory] = useState<ShopCategoryFilter>('all')
   const [search, setSearch] = useState('')
   const [lines, setLines] = useState<CartLine[]>([])
+  /** สินค้าโค้ชที่กำลังเลือกวัน/เวลา */
+  const [coachProduct, setCoachProduct] = useState<ShopProduct | null>(null)
+  const [coachDialogOpen, setCoachDialogOpen] = useState(false)
   const [discountType, setDiscountType] = useState<DiscountType>('amount')
   const [discountValue, setDiscountValue] = useState(0)
   const [bills, setBills] = useState<ShopBill[]>([])
@@ -103,11 +107,31 @@ export default function PosShopPage() {
   const total = Math.max(0, subtotal - discount)
 
   const addProduct = (product: ShopProduct) => {
+    // สินค้าหมวด "โค้ช" ต้องเลือกวัน/เวลาก่อนเพิ่ม
+    if (product.category === 'coach') {
+      setCoachProduct(product)
+      setCoachDialogOpen(true)
+      return
+    }
+    addLine(product)
+  }
+
+  const addLine = (product: ShopProduct, note?: string, qty = 1) => {
     setLines((prev) => {
-      const found = prev.find((l) => l.product.id === product.id)
-      if (found) return prev.map((l) => (l.product.id === product.id ? { ...l, qty: l.qty + 1 } : l))
+      // รายการโค้ช (มีวัน/เวลา) — แยกบรรทัดต่อการจอง · qty = จำนวนชั่วโมง
+      if (note) return [...prev, { product, qty, note }]
+      const found = prev.find((l) => l.product.id === product.id && !l.note)
+      if (found) return prev.map((l) => (l.product.id === product.id && !l.note ? { ...l, qty: l.qty + 1 } : l))
       return [...prev, { product, qty: 1 }]
     })
+  }
+
+  const confirmCoachBooking = (date: Date, startTime: string, endTime: string) => {
+    if (!coachProduct) return
+    const hours = Math.max(1, Number(endTime.slice(0, 2)) - Number(startTime.slice(0, 2)))
+    addLine(coachProduct, `จอง ${format(date, 'dd/MM/yyyy')} ${startTime}-${endTime} น.`, hours)
+    setCoachDialogOpen(false)
+    setCoachProduct(null)
   }
 
   const incLine = (id: string) => {
@@ -149,7 +173,7 @@ export default function PosShopPage() {
     const bill: ShopBill = {
       code: nextBillCode(),
       no: bills.length + 1,
-      items: lines.map((l) => ({ name: l.product.name, qty: l.qty, price: l.product.price })),
+      items: lines.map((l) => ({ name: l.product.name, qty: l.qty, price: l.product.price, note: l.note })),
       subtotal,
       discount,
       total,
@@ -208,7 +232,7 @@ export default function PosShopPage() {
     setReceipt({
       code: row.code,
       no: row.no,
-      items: row.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+      items: row.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, note: i.note ?? undefined })),
       subtotal: row.subtotal,
       discount: row.discount,
       total: row.total,
@@ -222,10 +246,10 @@ export default function PosShopPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-emerald-50/50 to-background">
       <PosHeader date={todayStr} refreshing={refreshing} title="pos-shop" onRefresh={() => loadProducts(true)} />
-      <PosMobileNav active="pos-shop" />
+      <PosMobileNav active="pos-shop" shopOnly />
 
       <div className="flex flex-1">
-        <PosSidebar active="pos-shop" />
+        <PosSidebar active="pos-shop" shopOnly />
 
         <main className="min-w-0 flex-1 space-y-4 px-4 py-5 lg:pl-4">
           <ShopSummary totalSales={totalSales} billCount={bills.length} soldItems={soldItems} avgPerBill={avgPerBill} />
@@ -274,6 +298,13 @@ export default function PosShopPage() {
         itemCount={itemCount}
         onOpenChange={setCheckoutOpen}
         onConfirm={confirmPayment}
+      />
+
+      <CoachBookingDialog
+        product={coachProduct}
+        open={coachDialogOpen}
+        onOpenChange={setCoachDialogOpen}
+        onConfirm={confirmCoachBooking}
       />
 
       <ReceiptDialog

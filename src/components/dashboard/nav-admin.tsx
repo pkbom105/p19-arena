@@ -1,17 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { BarChart3, Dumbbell, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
+import { BarChart3, Dumbbell, ScanBarcode, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { SECTIONS, type SectionId } from './helpers'
 
-interface DashboardSidebarProps {
+interface NavAdminProps {
   section: SectionId
   onSelect: (id: SectionId) => void
 }
 
-/** Side menu (desktop) — ทางเข้าหลัก + สลับ section ของ Dashboard */
-export function DashboardSidebar({ section, onSelect }: DashboardSidebarProps) {
+/** Side menu (desktop) — Level 1 Admin: แสดงเมนูครบทุกตัว (all menu) */
+export function NavAdmin({ section, onSelect }: NavAdminProps) {
   return (
     <aside className="w-56 shrink-0 bg-white border-r hidden lg:flex flex-col gap-1 px-3 py-4 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
       <Link
@@ -21,13 +21,13 @@ export function DashboardSidebar({ section, onSelect }: DashboardSidebarProps) {
         <Dumbbell className="h-4 w-4" /> Home / Booking
       </Link>
       <Link
-        href="/dashboard/pos-booking"
+        href="/dashboard/shop/pos-booking"
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
       >
         <Store className="h-4 w-4" /> pos-booking
       </Link>
       <Link
-        href="/dashboard/pos-shop"
+        href="/dashboard/shop/pos-shop"
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
       >
         <ShoppingCart className="h-4 w-4" /> pos-shop
@@ -39,16 +39,22 @@ export function DashboardSidebar({ section, onSelect }: DashboardSidebarProps) {
         <Tags className="h-4 w-4" /> shop-setting
       </Link>
       <Link
-        href="/dashboard/shop-report"
+        href="/dashboard/shop/shop-report"
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
       >
         <BarChart3 className="h-4 w-4" /> shop-report
       </Link>
       <Link
+        href="/dashboard/barcode"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
+      >
+        <ScanBarcode className="h-4 w-4" /> barcode
+      </Link>
+      <Link
         href="/settings"
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
       >
-        <SettingsIcon className="h-4 w-4" /> Settings
+        <SettingsIcon className="h-4 w-4" /> Setting
       </Link>
       <Separator className="my-2" />
       <div className="px-3 pb-1 text-[11px] font-semibold text-muted-foreground">DASHBOARD</div>

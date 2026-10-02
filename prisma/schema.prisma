@@ -133,6 +133,23 @@ model CoachBooking {
   updatedAt       DateTime @updatedAt
 }
 
+// โค้ช — รายชื่อโค้ช (แก้ไขได้จากหน้า /dashboard/shop-setting?section=coach)
+model Coach {
+  id              String   @id @default(cuid())
+  name            String
+  initial         String   @default("")
+  level           String   @default("")
+  pricePerHour    Int      @default(0)
+  experienceYears Int      @default(0)
+  specialties     String   @default("") // คั่นด้วย comma
+  availableDays   String   @default("")
+  rating          Float    @default(0)
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 // Error tracking / crash reporting (self-hosted) — บันทึก error ฝั่ง server + client
 model ErrorLog {
   id        String   @id @default(cuid())
@@ -220,6 +237,8 @@ model ShopReceiptItem {
   name      String
   qty       Int
   price     Int
+  /** หมายเหตุแนบท้ายรายการ (เช่น วัน/เวลา จองโค้ช) */
+  note      String?
 
   @@index([receiptId])
 }

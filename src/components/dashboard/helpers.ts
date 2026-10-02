@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  CalendarDays, GraduationCap, LayoutDashboard, MapPin, MessageCircle, Receipt, Trophy, Wrench,
+  CalendarDays, MapPin, MessageCircle, Receipt, Trophy,
 } from 'lucide-react'
 
 export const DAY_OPTIONS = [
@@ -30,14 +30,11 @@ export const COURT_COLORS = [
 export const COURT_ICONS = ['1', '2', '3', '4', '5', '6']
 
 export const SECTIONS = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'court', label: 'Court', icon: MapPin },
-  { id: 'equipment', label: 'Equipment', icon: Wrench },
-  { id: 'booking', label: 'Booking Tickets', icon: CalendarDays },
-  { id: 'slip', label: 'Slip Upload', icon: Receipt },
-  { id: 'coach', label: 'โค้ช', icon: GraduationCap },
+  { id: 'booking', label: 'Booking ticket', icon: CalendarDays },
+  { id: 'slip', label: 'Slip update', icon: Receipt },
   { id: 'activity', label: 'กิจกรรม', icon: Trophy },
-  { id: 'line', label: 'LINE Credential', icon: MessageCircle },
+  { id: 'line', label: 'Line credential', icon: MessageCircle },
 ] as const
 
 export type SectionId = (typeof SECTIONS)[number]['id']

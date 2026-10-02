@@ -1,20 +1,14 @@
 'use client'
 
-import { Clock, LayoutDashboard, MapPin, MessageCircle, Receipt, Trophy, Wrench } from 'lucide-react'
+import { Clock, MapPin, MessageCircle, Receipt, Trophy } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /** แถบแท็บแนวนอน — แสดงเฉพาะจอเล็ก (เดสก์ท็อปใช้ Sidebar แทน) */
 export function SectionTabs() {
   return (
-    <TabsList className="w-full lg:hidden mb-4 grid grid-cols-7">
-      <TabsTrigger value="overview" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
-        <LayoutDashboard className="h-4 w-4" /> <span className="font-medium">Overview</span>
-      </TabsTrigger>
+    <TabsList className="w-full lg:hidden mb-4 grid grid-cols-5">
       <TabsTrigger value="court" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
         <MapPin className="h-4 w-4" /> <span className="font-medium">Court</span>
-      </TabsTrigger>
-      <TabsTrigger value="equipment" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
-        <Wrench className="h-4 w-4" /> <span className="font-medium">Equipment</span>
       </TabsTrigger>
       <TabsTrigger value="booking" className="justify-center lg:justify-start lg:w-full lg:h-auto lg:rounded-lg gap-1.5">
         <Clock className="h-4 w-4" /> <span className="font-medium">Tickets</span>

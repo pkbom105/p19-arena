@@ -9,36 +9,32 @@ import { toast } from 'sonner'
 import { BookingSection } from './booking-section'
 import { CourtSection } from './court-section'
 import { DashboardHeader } from './dashboard-header'
-import { DashboardSidebar } from './dashboard-sidebar'
-import { EquipmentSection } from './equipment-section'
+import { NavAdmin } from './nav-admin'
 import { LineSection } from './line-section'
-import { OverviewSection } from './overview-section'
 import { SectionTabs } from './section-tabs'
 import { SlipUploadPanel } from './slip-upload-panel'
-import { CoachSection } from './coach-section'
 import { SECTIONS, type SectionId } from './helpers'
 import type { PriceRule } from '@/lib/price'
 import type {
-  BookingRow, Court, Equipment, LineMember, MessagingStatus, Settings, Stats, TimeSlotItem,
+  BookingRow, Court, LineMember, MessagingStatus, Settings, Stats, TimeSlotItem,
 } from './types'
 
 /**
  * หน้าหลัก Dashboard — รวม state/การโหลดข้อมูลไว้ที่เดียว แล้วส่งต่อให้แต่ละ section
- * (header / sidebar / overview / court / equipment / booking / line) ซึ่งแยกไฟล์ไว้ในโฟลเดอร์นี้
+ * (header / sidebar / overview / court / booking / line) ซึ่งแยกไฟล์ไว้ในโฟลเดอร์นี้
  */
 export function DashboardView({ initialSection }: { initialSection?: string }) {
   const pathname = usePathname()
   const [section, setSection] = useState<SectionId>(
-    SECTIONS.some((s) => s.id === initialSection) ? (initialSection as SectionId) : 'overview'
+    SECTIONS.some((s) => s.id === initialSection) ? (initialSection as SectionId) : 'court'
   )
 
   /** สลับ section + sync URL (/dashboard/<section>) โดยไม่ re-mount/refetch */
   const goSection = (id: SectionId) => {
     setSection(id)
-    window.history.pushState(null, '', `${BASE_PATH}/dashboard/${id}`)
+    window.history.pushState(null, '', `${BASE_PATH}/dashboard/1/${id}`)
   }
   const [courts, setCourts] = useState<Court[]>([])
-  const [equipment, setEquipment] = useState<Equipment[]>([])
   const [priceRules, setPriceRules] = useState<PriceRule[]>([])
   const [timeSlots, setTimeSlots] = useState<TimeSlotItem[]>([])
   const [settings, setSettings] = useState<Settings>({})
@@ -48,9 +44,7 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
 
   // Edit states
   const [editingCourt, setEditingCourt] = useState<Court | null>(null)
-  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null)
   const [showNewCourt, setShowNewCourt] = useState(false)
-  const [showNewEquipment, setShowNewEquipment] = useState(false)
   const [editingPriceRule, setEditingPriceRule] = useState<PriceRule | null>(null)
   const [showNewPriceRule, setShowNewPriceRule] = useState(false)
   const [bookings, setBookings] = useState<BookingRow[]>([])
@@ -65,9 +59,8 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [courtsRes, equipRes, settingsRes, rulesRes, slotsRes, bookingsRes, statsRes, usersRes, msgRes] = await Promise.all([
+      const [courtsRes, settingsRes, rulesRes, slotsRes, bookingsRes, statsRes, usersRes, msgRes] = await Promise.all([
         fetch(apiUrl('/api/courts')),
-        fetch(apiUrl('/api/equipment')),
         fetch(apiUrl('/api/settings')),
         fetch(apiUrl('/api/pricerules')),
         fetch(apiUrl('/api/timeslots?all=1')),
@@ -77,7 +70,6 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
         fetch(apiUrl('/api/line-messaging')),
       ])
       const courtsData = await courtsRes.json()
-      const equipData = await equipRes.json()
       const settingsData = await settingsRes.json()
       const rulesData = await rulesRes.json()
       const slotsData = await slotsRes.json()
@@ -85,7 +77,6 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
       const statsData = await statsRes.json()
       const usersData = await usersRes.json()
       setCourts(courtsData)
-      setEquipment(equipData)
       setSettings(settingsData)
       if (Array.isArray(rulesData)) setPriceRules(rulesData)
       if (Array.isArray(slotsData)) setTimeSlots(slotsData)
@@ -106,10 +97,10 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Back/Forward: sync section กับ URL (เช่น /dashboard/court → tab "Court")
+  // Back/Forward: sync section กับ URL (เช่น /dashboard/1/court → tab "Court")
   useEffect(() => {
     const seg = (pathname ?? '').split('/').filter(Boolean)
-    const maybe = seg.length > 1 ? seg[1] : 'overview'
+    const maybe = seg.length > 2 ? seg[2] : 'court'
     if (SECTIONS.some((s) => s.id === maybe) && maybe !== section) {
       setSection(maybe as SectionId)
     }
@@ -142,38 +133,6 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
     try {
       await fetch(apiUrl(`/api/courts?id=${id}`), { method: 'DELETE' })
       toast.success('ลบสนามสำเร็จ')
-      fetchData()
-    } catch {
-      toast.error('ลบไม่สำเร็จ')
-    }
-  }
-
-  // Equipment CRUD
-  const handleSaveEquipment = async (item: Partial<Equipment>) => {
-    setSaving(true)
-    try {
-      if (item.id) {
-        await fetch(apiUrl('/api/equipment'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
-        toast.success('อัปเดตอุปกรณ์สำเร็จ')
-      } else {
-        await fetch(apiUrl('/api/equipment'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
-        toast.success('เพิ่มอุปกรณ์สำเร็จ')
-      }
-      setEditingEquipment(null)
-      setShowNewEquipment(false)
-      fetchData()
-    } catch {
-      toast.error('บันทึกไม่สำเร็จ')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDeleteEquipment = async (id: string) => {
-    if (!confirm('ต้องการลบอุปกรณ์นี้?')) return
-    try {
-      await fetch(apiUrl(`/api/equipment?id=${id}`), { method: 'DELETE' })
-      toast.success('ลบอุปกรณ์สำเร็จ')
       fetchData()
     } catch {
       toast.error('ลบไม่สำเร็จ')
@@ -369,15 +328,11 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
       <DashboardHeader oaManagerChatUrl={oaManagerChatUrl} />
 
       <div className="flex flex-1">
-        <DashboardSidebar section={section} onSelect={goSection} />
+        <NavAdmin section={section} onSelect={goSection} />
 
         <main className="flex-1 min-w-0 px-4 py-5 lg:pl-4">
           <Tabs value={section} onValueChange={(v) => goSection(v as SectionId)} className="w-full">
             <SectionTabs />
-
-            <TabsContent value="overview" className="space-y-6">
-              <OverviewSection stats={stats} />
-            </TabsContent>
 
             <TabsContent value="court" className="space-y-6">
               <CourtSection
@@ -422,10 +377,6 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
               <SlipUploadPanel bookings={bookings} loading={loading} onRefresh={fetchData} />
             </TabsContent>
 
-            <TabsContent value="coach" className="space-y-6">
-              <CoachSection />
-            </TabsContent>
-
             <TabsContent value="activity" className="space-y-6">
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
                 <Trophy className="h-10 w-10 text-muted-foreground/50 mb-3" />
@@ -456,18 +407,6 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
               />
             </TabsContent>
 
-            <TabsContent value="equipment" className="space-y-6">
-              <EquipmentSection
-                equipment={equipment}
-                editingEquipment={editingEquipment}
-                setEditingEquipment={setEditingEquipment}
-                handleSaveEquipment={handleSaveEquipment}
-                handleDeleteEquipment={handleDeleteEquipment}
-                showNewEquipment={showNewEquipment}
-                setShowNewEquipment={setShowNewEquipment}
-                saving={saving}
-              />
-            </TabsContent>
           </Tabs>
         </main>
       </div>

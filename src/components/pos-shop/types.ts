@@ -33,10 +33,12 @@ export interface ShopProduct {
   barcode?: string
 }
 
-/** 1 บรรทัดในตะกร้า (สินค้า + จำนวน) */
+/** 1 บรรทัดในตะกร้า (สินค้า + จำนวน + หมายเหตุ เช่น วัน/เวลา จองโค้ช) */
 export interface CartLine {
   product: ShopProduct
   qty: number
+  /** หมายเหตุแนบท้ายรายการ (เช่น "จอง 12/10/2026 14:00") */
+  note?: string
 }
 
 export type PaymentMethod = 'cash' | 'transfer'
@@ -47,7 +49,7 @@ export interface ShopBill {
   code: string
   /** เลขที่บิลรันในรอบนี้ เช่น 1, 2, 3 */
   no: number
-  items: { name: string; qty: number; price: number }[]
+  items: { name: string; qty: number; price: number; note?: string }[]
   subtotal: number
   discount: number
   total: number

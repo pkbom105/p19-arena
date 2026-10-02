@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react'
 import type { ReactNode } from 'react'
 import { format } from 'date-fns'
-import { AlertTriangle, BarChart3, ClipboardList, Eye, PackageOpen, Printer, Receipt, Search, Tags, TrendingUp } from 'lucide-react'
+import { AlertTriangle, BarChart3, ChevronDown, ClipboardList, GraduationCap, PackageOpen, Printer, Receipt, Search, Tags, TrendingUp, Wrench } from 'lucide-react'
 import { apiUrl, BASE_PATH } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { PosHeader } from '@/components/pos/pos-header'
 import { PosMobileNav, PosSidebar } from '@/components/pos/pos-sidebar'
 import { ReceiptDialog } from '@/components/pos-shop/receipt-dialog'
@@ -18,6 +19,9 @@ import { useShopCategories } from '@/hooks/use-shop-categories'
 import { formatTHB } from '@/components/pos-shop/catalog'
 import type { ShopBill } from '@/components/pos-shop/types'
 import type { ShopProductRow } from '@/components/shop-setting/types'
+import { CoachSection } from '@/components/dashboard/coach-section'
+import { EquipmentSection } from '@/components/dashboard/equipment-section'
+import type { Equipment } from '@/components/dashboard/types'
 
 /**
  * รายงานร้านค้า (/dashboard/shop-report) — หน้าดูอย่างเดียว (แก้ไขที่ /dashboard/shop-setting)
@@ -26,7 +30,7 @@ import type { ShopProductRow } from '@/components/shop-setting/types'
  */
 
 /** ส่วนที่แสดงในหน้านี้ (กลุ่มเมนูด้านบน) */
-type SectionId = 'overview' | 'receipts'
+type SectionId = 'overview' | 'receipts' | 'coach' | 'equipment'
 
 /** ช่วงเวลาของตารางใบเสร็จ */
 type ReceiptRange = 'today' | '7d' | 'all'
@@ -40,6 +44,7 @@ interface ShopReceiptItemRow {
   name: string
   qty: number
   price: number
+  note?: string | null
 }
 
 /** ใบเสร็จที่บันทึกในตาราง ShopReceipt */
@@ -101,6 +106,8 @@ export default function ShopReportPage() {
   /** บิลที่กำลังเปิดใบเสร็จ A5 (ดู/พิมพ์) + true = สั่งพิมพ์อัตโนมัติ */
   const [receiptBill, setReceiptBill] = useState<ShopBill | null>(null)
   const [autoPrint, setAutoPrint] = useState(false)
+  /** บิลที่กางรายละเอียดแบบ inline ในตาราง (ปุ่ม chevron) */
+  const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
 
   // รวมหมวดที่ปิดใช้งานด้วย เพื่อให้ยอดรวมตรงกับสินค้าที่อ้างหมวดนั้นอยู่
   const { categories } = useShopCategories(true)
@@ -111,13 +118,13 @@ export default function ShopReportPage() {
   // อ่าน ?section= ตอนเปิดหน้า (ทำใน effect เพื่อไม่ให้ hydration ไม่ตรงกัน)
   useEffect(() => {
     const s = new URLSearchParams(window.location.search).get('section')
-    if (s === 'overview' || s === 'receipts') setSection(s)
+    if (s === 'overview' || s === 'receipts' || s === 'coach' || s === 'equipment') setSection(s)
   }, [])
 
   /** สลับส่วน + sync URL โดยไม่โหลดหน้าใหม่ (แบบเดียวกับหน้า /dashboard/shop-setting) */
   const goSection = (next: SectionId) => {
     setSection(next)
-    window.history.pushState(null, '', `${BASE_PATH}/dashboard/shop-report?section=${next}`)
+    window.history.pushState(null, '', `${BASE_PATH}/dashboard/shop/shop-report?section=${next}`)
   }
 
   /** โหลดสินค้าทั้งหมด (รวมที่ปิดใช้งาน) — ใช้ตัวเดียวกับหน้าตั้งค่า */
@@ -166,6 +173,23 @@ export default function ShopReportPage() {
     loadReceipts()
   }, [loadReceipts])
 
+  // อุปกรณ์ให้เช่า (RentalEquipment) — สำหรับแท็บ "อุปกรณ์เช่า" (เฉพาะที่ชำระเงินแล้ว)
+  const [equipment, setEquipment] = useState<Equipment[]>([])
+  const loadEquipment = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl('/api/equipment?paid=1'))
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data = await res.json()
+      if (Array.isArray(data)) setEquipment(data)
+    } catch (err) {
+      console.error('Failed to fetch equipment', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadEquipment()
+  }, [loadEquipment])
+
   /** ใบเสร็จหลังกรองตามช่วงเวลา + คำค้นหา (เลขที่บิล / ชื่อสินค้า) */
   const visibleReceipts = useMemo(() => {
     const from = (() => {
@@ -202,7 +226,7 @@ export default function ShopReportPage() {
     setReceiptBill({
       code: row.code,
       no: row.no,
-      items: row.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+      items: row.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, note: i.note ?? undefined })),
       subtotal: row.subtotal,
       discount: row.discount,
       total: row.total,
@@ -270,10 +294,10 @@ export default function ShopReportPage() {
           loadReceipts()
         }}
       />
-      <PosMobileNav active="shop-report" />
+      <PosMobileNav active="shop-report" shopOnly />
 
       <div className="flex flex-1">
-        <PosSidebar active="shop-report" />
+        <PosSidebar active="shop-report" shopOnly />
 
         <main className="min-w-0 flex-1 space-y-4 px-4 py-5 lg:pl-4">
           {loadError && (
@@ -297,6 +321,18 @@ export default function ShopReportPage() {
                 className="h-[4.5rem] flex-1 gap-2 whitespace-normal rounded-xl border border-emerald-300 bg-emerald-50 px-2 text-center text-xs leading-tight font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100 data-[state=active]:border-emerald-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white sm:flex-none sm:px-8 sm:text-base"
               >
                 <Receipt className="h-4 w-4" /> ใบเสร็จ จาก pos-shop
+              </TabsTrigger>
+              <TabsTrigger
+                value="coach"
+                className="h-[4.5rem] flex-1 gap-2 whitespace-normal rounded-xl border border-emerald-300 bg-emerald-50 px-2 text-center text-xs leading-tight font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100 data-[state=active]:border-emerald-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white sm:flex-none sm:px-8 sm:text-base"
+              >
+                <GraduationCap className="h-4 w-4" /> โค้ช
+              </TabsTrigger>
+              <TabsTrigger
+                value="equipment"
+                className="h-[4.5rem] flex-1 gap-2 whitespace-normal rounded-xl border border-emerald-300 bg-emerald-50 px-2 text-center text-xs leading-tight font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100 data-[state=active]:border-emerald-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white sm:flex-none sm:px-8 sm:text-base"
+              >
+                <Wrench className="h-4 w-4" /> อุปกรณ์เช่า
               </TabsTrigger>
             </TabsList>
 
@@ -494,65 +530,99 @@ export default function ShopReportPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <Table className="min-w-[1120px] table-fixed">
+                  <Table className="min-w-[900px] table-fixed">
                     <TableHeader className="bg-muted/40">
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="w-[14%]">วันที่ / เลขที่บิล</TableHead>
-                        <TableHead className="w-[25%]">รายการสินค้า</TableHead>
+                        <TableHead className="w-[24%]">รายการสินค้า</TableHead>
                         <TableHead className="w-[10%]">ชำระโดย</TableHead>
                         <TableHead className="w-[11%] text-right">ก่อนลด</TableHead>
                         <TableHead className="w-[10%] text-right">ส่วนลด</TableHead>
                         <TableHead className="w-[11%] text-right">ยอดสุทธิ</TableHead>
                         <TableHead className="w-[12%] text-right">รับ / ทอน</TableHead>
-                        <TableHead className="w-[7%] text-center">จัดการ</TableHead>
+                        <TableHead className="w-[8%] text-center">จัดการ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {visibleReceipts.map((r) => {
                         const itemNames = r.items.map((i) => `${i.name} × ${i.qty}`).join(', ')
+                        const expanded = expandedReceiptId === r.id
                         return (
-                          <TableRow key={r.id} data-slot="receipt-row">
-                            <TableCell>
-                              <div className="font-semibold">{r.code}</div>
-                              <div className="text-xs text-muted-foreground">{format(new Date(r.soldAt), 'dd/MM/yyyy HH:mm')}</div>
-                            </TableCell>
-                            <TableCell className="whitespace-normal">
-                              <div className="line-clamp-2 text-sm" title={itemNames}>{itemNames}</div>
-                              <div className="mt-0.5 text-xs text-muted-foreground">{r.itemCount} ชิ้น</div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary" className="whitespace-nowrap">{r.method === 'cash' ? 'เงินสด' : 'โอน/QR'}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">{formatTHB(r.subtotal)}</TableCell>
-                            <TableCell className="text-right tabular-nums">{r.discount ? `-${formatTHB(r.discount)}` : '—'}</TableCell>
-                            <TableCell className="text-right font-semibold text-emerald-700 tabular-nums">{formatTHB(r.total)}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              <div>{formatTHB(r.received)}</div>
-                              {r.change > 0 && <div className="text-xs text-muted-foreground">ทอน {formatTHB(r.change)}</div>}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => openReceipt(r)}
-                                  aria-label={`ดูใบเสร็จ ${r.code}`}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => openReceipt(r, true)}
-                                  aria-label={`พิมพ์ใบเสร็จ ${r.code}`}
-                                >
-                                  <Printer className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                          <Fragment key={r.id}>
+                            <TableRow data-slot="receipt-row">
+                              <TableCell>
+                                <div className="font-semibold">{r.code}</div>
+                                <div className="text-xs text-muted-foreground">{format(new Date(r.soldAt), 'dd/MM/yyyy HH:mm')}</div>
+                              </TableCell>
+                              <TableCell className="whitespace-normal">
+                                <div className="line-clamp-2 text-sm" title={itemNames}>{itemNames}</div>
+                                <div className="mt-0.5 text-xs text-muted-foreground">{r.itemCount} ชิ้น</div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="whitespace-nowrap">{r.method === 'cash' ? 'เงินสด' : 'โอน/QR'}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">{formatTHB(r.subtotal)}</TableCell>
+                              <TableCell className="text-right tabular-nums">{r.discount ? `-${formatTHB(r.discount)}` : '—'}</TableCell>
+                              <TableCell className="text-right font-semibold text-emerald-700 tabular-nums">{formatTHB(r.total)}</TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                <div>{formatTHB(r.received)}</div>
+                                {r.change > 0 && <div className="text-xs text-muted-foreground">ทอน {formatTHB(r.change)}</div>}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex justify-center gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setExpandedReceiptId((cur) => (cur === r.id ? null : r.id))}
+                                    aria-label={`ดูรายการ ${r.code}`}
+                                    aria-expanded={expanded}
+                                  >
+                                    <ChevronDown className={'h-3.5 w-3.5 transition-transform ' + (expanded ? 'rotate-180' : '')} />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => openReceipt(r)}
+                                    aria-label={`ดู/พิมพ์ใบเสร็จ ${r.code}`}
+                                  >
+                                    <Printer className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {expanded && (
+                              <TableRow data-slot="receipt-detail-row" className="hover:bg-transparent">
+                                <TableCell colSpan={8} className="bg-muted/20 p-0">
+                                  <Collapsible open>
+                                    <CollapsibleContent>
+                                      <div className="space-y-2 px-4 py-3">
+                                        <div className="text-xs font-semibold text-muted-foreground">รายการสินค้าในบิล {r.code}</div>
+                                        <div className="divide-y rounded-md border bg-white">
+                                          {r.items.map((i) => (
+                                            <div key={i.id} className="grid grid-cols-[1fr_4rem_6rem] items-center gap-3 px-3 py-1.5 text-sm">
+                                              <span className="min-w-0">
+                                                <span className="font-medium">{i.name}</span>
+                                                {i.note && <span className="ml-1 text-xs text-muted-foreground">({i.note})</span>}
+                                              </span>
+                                              <span className="text-right tabular-nums text-muted-foreground">× {i.qty}</span>
+                                              <span className="text-right tabular-nums">{formatTHB(i.price * i.qty)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                          <span>ก่อนลด {formatTHB(r.subtotal)}</span>
+                                          <span>ส่วนลด {formatTHB(r.discount)}</span>
+                                          <span className="font-semibold text-emerald-700">ยอดสุทธิ {formatTHB(r.total)}</span>
+                                        </div>
+                                      </div>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
                         )
                       })}
                       {receiptLoading && receipts.length === 0 && (
@@ -584,6 +654,16 @@ export default function ShopReportPage() {
                   }
                 }}
               />
+            </TabsContent>
+
+            {/* โค้ช — จัดการจองโค้ช (ย้ายมาจาก Dashboard → Coach) */}
+            <TabsContent value="coach" className="space-y-4">
+              <CoachSection />
+            </TabsContent>
+
+            {/* อุปกรณ์ให้เช่า — จัดการอุปกรณ์เช่า (ย้ายมาจาก Dashboard → Equipment) */}
+            <TabsContent value="equipment" className="space-y-4">
+              <EquipmentSection equipment={equipment} onChanged={loadEquipment} />
             </TabsContent>
           </Tabs>
         </main>

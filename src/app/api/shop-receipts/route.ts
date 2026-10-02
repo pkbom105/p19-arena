@@ -54,10 +54,11 @@ export async function POST(request: NextRequest) {
     const lastRunning = Number.parseInt((lastOfMonth?.code ?? '').slice(prefix.length), 10)
     const code = `${prefix}${String((Number.isFinite(lastRunning) ? lastRunning : 0) + 1).padStart(3, '0')}`
 
-    const cleanItems = items.map((i: { name?: string; qty?: number; price?: number }) => ({
+    const cleanItems = items.map((i: { name?: string; qty?: number; price?: number; note?: string }) => ({
       name: String(i?.name ?? '').trim() || 'ไม่ระบุชื่อ',
       qty: Math.max(1, Number(i?.qty) || 1),
       price: Math.max(0, Number(i?.price) || 0),
+      note: i?.note ? String(i.note).trim() || null : null,
     }))
 
     const receipt = await db.shopReceipt.create({

@@ -1,12 +1,26 @@
 /* แคตตาล็อกสินค้าของร้าน (รอบนี้เก็บในโค้ด — ยังไม่ผูก DB) */
 
 import type { ShopCategory, ShopProduct } from './types'
+import { COACH_PACKAGES } from '@/components/activity/coaches'
 
 export const SHOP_CATEGORIES: ShopCategory[] = [
   { id: 'cloth', label: 'เสื้อผ้า', labelEn: 'Cloth', emoji: '👕' },
   { id: 'racket', label: 'แร็กเก็ต & อุปกรณ์', labelEn: 'Racket & Gear', emoji: '🏓' },
   { id: 'food', label: 'อาหาร & ขนม', labelEn: 'Food & Snack', emoji: '🥤' },
+  { id: 'rental', label: 'เช่า', labelEn: 'Rental', emoji: '🏸' },
+  { id: 'coach', label: 'โค้ช', labelEn: 'Coach', emoji: '🎾' },
 ]
+
+/** สินค้าโค้ช — สร้างจาก COACH_PACKAGES (แหล่งเดียวกับหน้าจองโค้ช /activity/coach) → ราคา/ชื่อ sync อัตโนมัติ */
+const COACH_SHOP_PRODUCTS: ShopProduct[] = COACH_PACKAGES.map((c) => ({
+  id: c.id,
+  name: c.name,
+  nameEn: c.name,
+  category: 'coach',
+  price: c.pricePerHour,
+  unit: 'ชั่วโมง',
+  emoji: '🎾',
+}))
 
 /** ชุดสินค้าเริ่มต้น — ใช้เป็น (1) ข้อมูล seed ครั้งแรกของตาราง ShopProduct (2) ชุดสำรองชั่วคราวเมื่อเรียก API ไม่สำเร็จ */
 export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
@@ -29,6 +43,12 @@ export const DEFAULT_SHOP_PRODUCTS: ShopProduct[] = [
   { id: 'food-coffee', name: 'กาแฟกระป๋อง', nameEn: 'Canned Coffee', category: 'food', price: 35, unit: 'กระป๋อง', emoji: '☕' },
   { id: 'food-chips', name: 'มันฝรั่งทอดกรอบ', nameEn: 'Potato Chips', category: 'food', price: 25, unit: 'ซอง', emoji: '🍟' },
   { id: 'food-banana', name: 'กล้วยหอม', nameEn: 'Banana', category: 'food', price: 15, unit: 'ลูก', emoji: '🍌' },
+
+  // ── เช่า (อุปกรณ์ให้เช่า) ────────────────────────────────
+  { id: 'rental-racket', name: 'แร็กเก็ตพิคเคิลบอล', nameEn: 'Pickleball Racket', category: 'rental', price: 50, unit: 'ชิ้น', emoji: '🏸' },
+
+  // ── โค้ช (sync กับ COACH_PACKAGES) ──────────────────────
+  ...COACH_SHOP_PRODUCTS,
 ]
 
 /** 3900 -> "฿3,900" */

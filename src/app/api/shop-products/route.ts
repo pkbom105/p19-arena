@@ -125,6 +125,15 @@ export async function PUT(request: NextRequest) {
         ...(isActive !== undefined ? { isActive } : {}),
       },
     })
+
+    // Sync ราคา → อุปกรณ์เช่า (RentalEquipment) ที่ชื่อตรงกัน (2 ทางกับ /api/equipment)
+    if (price !== undefined) {
+      await db.rentalEquipment.updateMany({
+        where: { name: item.name },
+        data: { pricePerUnit: price },
+      })
+    }
+
     return NextResponse.json(item)
   } catch (error) {
     console.error('Error updating shop product:', error)

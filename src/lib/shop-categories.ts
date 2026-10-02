@@ -43,15 +43,18 @@ export function toShopCategory(row: ShopCategoryLike): ShopCategoryRow {
  * เรียกก่อนตอบทุก API ของหมวด เพื่อให้สินค้าเดิมที่มีอยู่มีหมวดรองรับเสมอ
  */
 export async function ensureShopCategories() {
-  const count = await db.shopCategory.count()
-  if (count > 0) return
+  const existing = await db.shopCategory.findMany({ select: { id: true } })
+  const existingIds = new Set(existing.map((r) => r.id))
+  const missing = SHOP_CATEGORIES.map((c, index) => ({ ...c, sortOrder: index }))
+    .filter((c) => !existingIds.has(c.id))
+  if (missing.length === 0) return
   await db.shopCategory.createMany({
-    data: SHOP_CATEGORIES.map((c, index) => ({
+    data: missing.map((c) => ({
       id: c.id,
       label: c.label,
       labelEn: c.labelEn,
       emoji: c.emoji,
-      sortOrder: index,
+      sortOrder: c.sortOrder,
     })),
   })
 }

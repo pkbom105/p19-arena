@@ -17,7 +17,7 @@ export function PosHeader({ date, refreshing, onRefresh, title = 'pos-booking' }
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
       <div className="flex items-center gap-2 px-4 h-14">
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.push('/dashboard')} aria-label="กลับ Dashboard">
+        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.push('/dashboard/1')} aria-label="กลับ Dashboard">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Store className="h-6 w-6 text-emerald-600 shrink-0" />

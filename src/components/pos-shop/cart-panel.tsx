@@ -1,6 +1,6 @@
 'use client'
 
-import { CreditCard, Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react'
+import { CalendarDays, CreditCard, Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,15 +52,21 @@ export function CartPanel({ lines, subtotal, discount, discountType, discountVal
         <p className="flex-1 py-8 text-center text-sm text-muted-foreground">ยังไม่มีสินค้าในตะกร้า — กดการ์ดสินค้าเพื่อเพิ่ม</p>
       ) : (
         <div data-slot="cart-lines" className="flex-1 space-y-2">
-          {lines.map(({ product: p, qty }) => (
-            <div key={p.id} className="flex items-center gap-2 rounded-lg border bg-muted/20 p-2">
+          {lines.map(({ product: p, qty, note }) => (
+            <div key={`${p.id}-${note ?? ''}`} className="flex items-center gap-2 rounded-lg border bg-muted/20 p-2">
               <span className="shrink-0 text-xl leading-none">{p.emoji}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{p.name}</div>
                 <div className="text-[11px] text-muted-foreground">
-                  {formatTHB(p.price)} × {qty} ={' '}
-                  <span className="font-semibold text-emerald-700">{formatTHB(p.price * qty)}</span>
+                  {p.category === 'coach'
+                    ? <>{formatTHB(p.price)}/ชม. × {qty} ชม. = <span className="font-semibold text-emerald-700">{formatTHB(p.price * qty)}</span></>
+                    : <>{formatTHB(p.price)} × {qty} = <span className="font-semibold text-emerald-700">{formatTHB(p.price * qty)}</span></>}
                 </div>
+                {note && (
+                  <div className="mt-0.5 inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
+                    <CalendarDays className="h-3 w-3" /> {note}
+                  </div>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onDec(p.id)} aria-label={`ลดจำนวน ${p.name}`}>

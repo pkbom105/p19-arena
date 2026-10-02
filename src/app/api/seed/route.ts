@@ -49,12 +49,14 @@ export async function POST() {
       where: { name: { startsWith: 'บอล' } },
     })
 
-    // สินค้าร้าน POS (idempotent — seed เฉพาะเมื่อยังไม่มีสินค้าเลย)
+    // สินค้าร้าน POS (idempotent — สร้างเฉพาะรายการที่ยังไม่มี โดยเทียบชื่อ+หมวด)
     // ชุดเริ่มต้นมาจาก DEFAULT_SHOP_PRODUCTS (แหล่งเดียวกับ fallback ของหน้าแคชเชียร์)
-    const shopCount = await db.shopProduct.count()
-    if (shopCount === 0) {
+    const existingProducts = await db.shopProduct.findMany({ select: { name: true, category: true } })
+    const existingKeys = new Set(existingProducts.map((p) => `${p.name}::${p.category}`))
+    const missingProducts = DEFAULT_SHOP_PRODUCTS.filter((p) => !existingKeys.has(`${p.name}::${p.category}`))
+    if (missingProducts.length > 0) {
       await db.shopProduct.createMany({
-        data: DEFAULT_SHOP_PRODUCTS.map((p, i) => ({
+        data: missingProducts.map((p, i) => ({
           name: p.name,
           nameEn: p.nameEn,
           category: p.category,

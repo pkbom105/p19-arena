@@ -16,14 +16,16 @@ const PROMPTPAY_DISPLAY = '089-699-3979'
  * (ใช้กับสำเนาที่ portal ไป <body> เพื่อให้ซ่อน body child อื่นได้ทั้งหมด)
  */
 const PRINT_CSS = `
-@page { size: A5 portrait; margin: 8mm; }
+@page { size: A5 portrait; margin: 30mm 12mm 10mm; }
 @media print {
-  html, body { background: #fff !important; }
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
   body > *:not(#receipt-print-root) { display: none !important; }
-  #receipt-print-root { position: static !important; left: auto !important; top: auto !important; }
+  #receipt-print-root { position: static !important; left: auto !important; top: auto !important; width: 85% !important; margin: 0 auto !important; }
   #receipt-print-root [data-slot="receipt-a5"] {
-    width: 100% !important;
+    width: auto !important;
+    max-width: 100% !important;
     min-height: 0 !important;
+    margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     border-radius: 0 !important;
@@ -94,7 +96,10 @@ export function ReceiptA5({ bill, qrDataUrl }: { bill: ShopBill; qrDataUrl?: str
           {bill.items.map((item, index) => (
             <tr key={`${item.name}-${index}`} className="border-b border-dashed">
               <td className="px-1 py-1 align-top">{index + 1}</td>
-              <td className="px-1 py-1 align-top">{item.name}</td>
+              <td className="px-1 py-1 align-top">
+                {item.name}
+                {item.note && <div className="text-[9px] text-slate-500">{item.note}</div>}
+              </td>
               <td className="px-1 py-1 text-right align-top">{item.qty}</td>
               <td className="px-1 py-1 text-right align-top">{formatTHB(item.price)}</td>
               <td className="px-1 py-1 text-right align-top font-medium">{formatTHB(item.price * item.qty)}</td>

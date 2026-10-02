@@ -146,10 +146,10 @@ export default function PosPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-emerald-50/50 to-background">
       <PosHeader date={date} refreshing={refreshing} onRefresh={() => fetchData({ silent: true })} />
-      <PosMobileNav />
+      <PosMobileNav shopOnly />
 
       <div className="flex flex-1">
-        <PosSidebar />
+        <PosSidebar shopOnly />
 
         <main className="min-w-0 flex-1 space-y-4 px-4 py-5 lg:pl-4">
           <PosStats

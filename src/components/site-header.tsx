@@ -10,8 +10,11 @@ const MENU_ITEMS = [
   { href: '/activity', label: 'กิจกรรม', icon: Trophy },
 ]
 
-/** Header ร่วม: โลโก้ + เมนูหลัก (จองสนาม / ตรวจสอบการจอง) + ตั้งค่า/ติดต่อเรา */
-export function SiteHeader() {
+/**
+ * Header ร่วม: โลโก้ + เมนูหลัก (จองสนาม / ตรวจสอบการจอง) + ตั้งค่า/ติดต่อเรา
+ * @param showSettings แสดงไอคอนตั้งค่า (default true) — หน้าแรกส่ง false เพื่อซ่อนเฉพาะหน้านั้น
+ */
+export function SiteHeader({ showSettings = true }: { showSettings?: boolean } = {}) {
   const pathname = usePathname()
 
   return (
@@ -29,19 +32,21 @@ export function SiteHeader() {
           </Link>
           <div className="flex items-center gap-2">
             <Link
-              href="/dashboard"
+              href="/dashboard/1"
               className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               aria-label="Dashboard"
             >
               <LayoutDashboard className="h-4 w-4" />
             </Link>
-            <Link
-              href="/settings"
-              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="ตั้งค่า"
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
+            {showSettings && (
+              <Link
+                href="/settings"
+                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                aria-label="ตั้งค่า"
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
+            )}
             <a
               href="tel:02-xxx-xxxx"
               className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700"

@@ -20,7 +20,7 @@ export interface RecentBill {
   change: number
   itemCount: number
   soldAt: string
-  items: { id: string; name: string; qty: number; price: number }[]
+  items: { id: string; name: string; qty: number; price: number; note?: string | null }[]
 }
 
 /**

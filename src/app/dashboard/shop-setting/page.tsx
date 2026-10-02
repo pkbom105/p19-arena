@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { AlertTriangle, Loader2, Package, Plus, Search, Tags } from 'lucide-react'
+import { AlertTriangle, GraduationCap, Loader2, Package, Plus, Search, Tags, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiUrl, BASE_PATH } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
@@ -20,11 +20,14 @@ import { CategoryDialog } from '@/components/shop-setting/category-dialog'
 import { CategoryList } from '@/components/shop-setting/category-list'
 import { useShopCategories } from '@/hooks/use-shop-categories'
 import type { ShopProductRow } from '@/components/shop-setting/types'
+import { EquipmentSection } from '@/components/dashboard/equipment-section'
+import type { Equipment } from '@/components/dashboard/types'
+import { CoachList, type CoachRow } from '@/components/dashboard/coach-list'
 
 type CategoryFilter = string
 
 /** ส่วนที่แสดงในหน้านี้ (กลุ่มเมนูด้านบน) */
-type SectionId = 'products' | 'categories'
+type SectionId = 'products' | 'categories' | 'equipment' | 'coach'
 
 /**
  * ตั้งค่าสินค้าร้าน POS (/dashboard/shop-setting)
@@ -47,13 +50,19 @@ export default function ShopSettingPage() {
   // หมวดสินค้าจากตาราง ShopCategory (รวมที่ปิดใช้งาน) — เพิ่มหมวดใหม่ได้จากปุ่มในหัวการ์ด
   const { categories, addCategory, reloadCategories } = useShopCategories(true)
 
+  // อุปกรณ์ให้เช่า (ย้ายมาจากหน้า Dashboard → Equipment) — จัดการผ่าน /api/equipment
+  const [equipment, setEquipment] = useState<Equipment[]>([])
+
+  // รายชื่อโค้ช — จัดการผ่าน /api/coaches (แก้ไขได้)
+  const [coaches, setCoaches] = useState<CoachRow[]>([])
+
   /** ส่วนที่กำลังแสดง: การ์ดสินค้า หรือ การ์ดหมวด (ผูกกับ ?section=) */
   const [section, setSection] = useState<SectionId>('products')
 
   // อ่าน ?section= ตอนเปิดหน้า (ทำใน effect เพื่อไม่ให้ hydration ไม่ตรงกัน)
   useEffect(() => {
     const s = new URLSearchParams(window.location.search).get('section')
-    if (s === 'products' || s === 'categories') setSection(s)
+    if (s === 'products' || s === 'categories' || s === 'equipment' || s === 'coach') setSection(s)
   }, [])
 
   /** สลับส่วน + sync URL โดยไม่โหลดหน้าใหม่ (แบบเดียวกับหน้า /dashboard) */
@@ -84,6 +93,38 @@ export default function ShopSettingPage() {
   useEffect(() => {
     loadProducts()
   }, [loadProducts])
+
+  /** โหลดอุปกรณ์ให้เช่า — ย้ายมาจากหน้า Dashboard → Equipment */
+  const loadEquipment = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl('/api/equipment?all=1'))
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data = await res.json()
+      if (Array.isArray(data)) setEquipment(data)
+    } catch (err) {
+      console.error('Failed to fetch equipment', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadEquipment()
+  }, [loadEquipment])
+
+  /** โหลดรายชื่อโค้ช — ผ่าน /api/coaches */
+  const loadCoaches = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl('/api/coaches?all=1'))
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data = await res.json()
+      if (Array.isArray(data)) setCoaches(data)
+    } catch (err) {
+      console.error('Failed to fetch coaches', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCoaches()
+  }, [loadCoaches])
 
   // ตัวกรอง: หมวด + คำค้นหา + จะแสดงรายการที่ปิดใช้งานหรือไม่
   const visible = useMemo(() => {
@@ -192,6 +233,18 @@ export default function ShopSettingPage() {
               >
                 <Tags className="h-4 w-4" /> หมวดสินค้า (POS)
               </TabsTrigger>
+              <TabsTrigger
+                value="equipment"
+                className="h-[4.5rem] flex-1 gap-2 whitespace-normal rounded-xl border border-emerald-300 bg-emerald-50 px-2 text-center text-xs leading-tight font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100 data-[state=active]:border-emerald-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white sm:flex-none sm:px-8 sm:text-base"
+              >
+                <Wrench className="h-4 w-4" /> อุปกรณ์เช่า
+              </TabsTrigger>
+              <TabsTrigger
+                value="coach"
+                className="h-[4.5rem] flex-1 gap-2 whitespace-normal rounded-xl border border-emerald-300 bg-emerald-50 px-2 text-center text-xs leading-tight font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100 data-[state=active]:border-emerald-700 data-[state=active]:bg-emerald-600 data-[state=active]:text-white sm:flex-none sm:px-8 sm:text-base"
+              >
+                <GraduationCap className="h-4 w-4" /> โค้ช
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="products" className="space-y-4">
@@ -294,6 +347,16 @@ export default function ShopSettingPage() {
             {/* การ์ดจัดการหมวดสินค้า — เข้าจากกลุ่มเมนูด้านบน (แท็บ "หมวดสินค้า (POS)") */}
             <TabsContent value="categories" className="space-y-4">
               <CategoryList categories={categories} onUpdated={reloadCategories} />
+            </TabsContent>
+
+            {/* การ์ดจัดการอุปกรณ์ให้เช่า — ย้ายมาจากหน้า Dashboard → Equipment */}
+            <TabsContent value="equipment" className="space-y-4">
+              <EquipmentSection equipment={equipment} onChanged={loadEquipment} />
+            </TabsContent>
+
+            {/* รายชื่อโค้ช — UI แบบเดียวกับอุปกรณ์เช่า + วันที่/เวลาว่าง (แก้ไขได้) */}
+            <TabsContent value="coach" className="space-y-4">
+              <CoachList coaches={coaches} onChanged={loadCoaches} />
             </TabsContent>
           </Tabs>
         </main>
