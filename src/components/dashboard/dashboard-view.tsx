@@ -3,7 +3,7 @@
 import { apiUrl, BASE_PATH } from '@/lib/api'
 import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
-import { Loader2, Trophy } from 'lucide-react'
+import { Loader2, PartyPopper, Trophy } from 'lucide-react'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { BookingSection } from './booking-section'
@@ -355,6 +355,14 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
                 setShowNewPriceRule={setShowNewPriceRule}
                 saving={saving}
               />
+            </TabsContent>
+
+            <TabsContent value="party-match" className="space-y-6">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+                <PartyPopper className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                <p className="font-medium">Party Match</p>
+                <p className="text-sm text-muted-foreground mt-1">กำลังพัฒนา — ฟีเจอร์นี้จะเปิดใช้งานเร็ว ๆ นี้</p>
+              </div>
             </TabsContent>
 
             <TabsContent value="booking" className="space-y-6">

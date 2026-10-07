@@ -44,15 +44,37 @@ model RentalEquipment {
 
 model User {
   id             String    @id @default(cuid())
-  lineUserId     String?   @unique
+  lineUserId      String?   @unique
   lineDisplayName String?
-  linePictureUrl String?
-  name           String?
-  phone          String?
-  email          String?
+  linePictureUrl  String?
+  googleId        String?   @unique
+  googleName      String?
+  googlePictureUrl String?
+  name            String?
+  phone           String?
+  email           String?
+  emailVerifiedAt DateTime?
+  walletBalance   Int       @default(0)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   bookings       Booking[]
+  topUpRequests  TopUpRequest[]
+}
+
+model TopUpRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  amount       Int
+  slipName     String
+  slipDataUrl  String
+  status       String   @default("pending")
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Booking {
@@ -242,4 +264,3 @@ model ShopReceiptItem {
 
   @@index([receiptId])
 }
-

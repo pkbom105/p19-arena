@@ -5,9 +5,8 @@ import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { formatTHB } from './catalog'
 import type { ShopBill } from './types'
+import { DEFAULT_RECEIPT_BRANDING, type ReceiptBranding } from '@/lib/receipt-branding'
 
-/** หัวใบเสร็จ — ชื่อร้านเดียวกับใบเสร็จหน้า booking */
-const SHOP_NAME = 'P19 Pickleball Arena'
 /** เบอร์พร้อมเพย์ของสนาม (ตัวเดียวกับ components/qrcode.tsx) */
 const PROMPTPAY_DISPLAY = '089-699-3979'
 
@@ -44,24 +43,42 @@ function AmountRow({ label, value, strong }: { label: string; value: string; str
   )
 }
 
-/** ใบเสร็จขนาด A5 แนวตั้ง (148×210 มม.) — ใช้ทั้งตัวอย่างใน dialog และตัวที่พิมพ์ออกกระดาษ */
-export function ReceiptA5({ bill, qrDataUrl }: { bill: ShopBill; qrDataUrl?: string | null }) {
+/**
+ * ใบเสร็จขนาด A5 แนวตั้ง (148×210 มม.) — ใช้ทั้งตัวอย่างใน dialog และตัวที่พิมพ์ออกกระดาษ
+ * @param branding หัวใบเสร็จ (โลโก้/ชื่อร้าน/หัวข้อ ฯลฯ) ที่ตั้งจากหน้า shop-setting — ไม่ส่ง = ใช้ค่าเริ่มต้น
+ * @param preview  true = ย่อให้เต็มความกว้างคอลัมน์ (ใช้ในหน้าตั้งค่า) · false = ขนาด A5 สำหรับพิมพ์
+ */
+export function ReceiptA5({ bill, qrDataUrl, branding = DEFAULT_RECEIPT_BRANDING, preview = false }: {
+  bill: ShopBill
+  qrDataUrl?: string | null
+  branding?: ReceiptBranding
+  preview?: boolean
+}) {
   const methodLabel = bill.method === 'cash' ? 'เงินสด' : 'โอน / QR'
   const totalQty = bill.items.reduce((sum, item) => sum + item.qty, 0)
 
   return (
     <div
       data-slot="receipt-a5"
-      className="mx-auto flex w-[148mm] min-h-[210mm] flex-col gap-3 rounded-lg border bg-white p-[10mm] text-slate-900 shadow-sm"
+      className={
+        'mx-auto flex flex-col gap-3 rounded-lg border bg-white text-slate-900 shadow-sm ' +
+        (preview ? 'w-full min-h-0 p-4' : 'w-[148mm] min-h-[210mm] p-[10mm]')
+      }
     >
-      {/* หัวใบเสร็จ */}
+      {/* หัวใบเสร็จ — โลโก้/ชื่อร้าน/หัวข้อ ตั้งได้จากหน้า shop-setting */}
       <div className="flex items-start gap-3 border-b border-dashed pb-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
-          P19
-        </div>
+        {branding.logo ? (
+          <img src={branding.logo} alt={branding.shopName} className="h-11 w-11 shrink-0 rounded-lg border object-contain" />
+        ) : (
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
+            P19
+          </div>
+        )}
         <div className="min-w-0">
-          <div className="text-base font-bold leading-tight">{SHOP_NAME}</div>
-          <div className="text-[11px] text-slate-500">ใบเสร็จรับเงิน / RECEIPT</div>
+          <div className="text-base font-bold leading-tight">{branding.shopName}</div>
+          {branding.title && <div className="text-[11px] text-slate-500">{branding.title}</div>}
+          {branding.subheader && <div className="text-[10px] text-slate-500">{branding.subheader}</div>}
+          {branding.taxId && <div className="text-[10px] text-slate-500">เลขประจำตัวผู้เสียภาษี {branding.taxId}</div>}
         </div>
         <div className="ml-auto shrink-0 text-right text-[11px] text-slate-500">
           <div className="text-sm font-bold text-slate-900">เลขที่บิล {bill.code}</div>
@@ -138,7 +155,7 @@ export function ReceiptA5({ bill, qrDataUrl }: { bill: ShopBill; qrDataUrl?: str
       {/* ท้ายใบเสร็จ */}
       <div className="border-t border-dashed pt-2 text-center text-[10px] text-slate-500">
         <div className="text-[11px] font-medium text-slate-700">ขอบคุณที่ใช้บริการ 🙏</div>
-        <div>{SHOP_NAME} · ใบเสร็จออกโดยระบบ POS อัตโนมัติ</div>
+        <div>{branding.shopName} · ใบเสร็จออกโดยระบบ POS อัตโนมัติ</div>
         <div>เก็บใบเสร็จนี้ไว้เป็นหลักฐานการชำระเงิน</div>
       </div>
     </div>
@@ -146,7 +163,7 @@ export function ReceiptA5({ bill, qrDataUrl }: { bill: ShopBill; qrDataUrl?: str
 }
 
 /** สำเนาสำหรับพิมพ์ — portal ไป <body> เพื่อให้ @media print ซ่อนทั้งแอปได้เหลือเฉพาะใบเสร็จ */
-export function ReceiptPrintRoot({ bill, qrDataUrl }: { bill: ShopBill; qrDataUrl?: string | null }) {
+export function ReceiptPrintRoot({ bill, qrDataUrl, branding }: { bill: ShopBill; qrDataUrl?: string | null; branding?: ReceiptBranding }) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
@@ -156,7 +173,7 @@ export function ReceiptPrintRoot({ bill, qrDataUrl }: { bill: ShopBill; qrDataUr
   return createPortal(
     <div id="receipt-print-root" aria-hidden className="fixed left-[-9999px] top-0">
       <style>{PRINT_CSS}</style>
-      <ReceiptA5 bill={bill} qrDataUrl={qrDataUrl} />
+      <ReceiptA5 bill={bill} qrDataUrl={qrDataUrl} branding={branding} />
     </div>,
     document.body
   )

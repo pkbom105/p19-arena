@@ -10,12 +10,15 @@ function securityHeaders(isDev: boolean): Record<string, string> {
   // - next/font (Google Fonts) ถูก self-host ตอน build → font-src 'self'
   // - รูปโปรไฟล์ LINE (profile.line-scdn.net) + favicon ภายนอก → img-src https:
   // - LINE token exchange เกิดฝั่ง server → client connect แค่ 'self'
+  // - OCR สลิปใช้ tesseract.js: worker สร้างจาก blob: + โหลด worker/core จาก jsdelivr
+  //   → worker-src 'self' blob: และ script-src อนุญาต https://cdn.jsdelivr.net
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://cdn.jsdelivr.net`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
+    "worker-src 'self' blob:",
     "connect-src 'self' https:",
     "object-src 'none'",
     "base-uri 'self'",

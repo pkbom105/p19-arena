@@ -62,6 +62,8 @@ export function StepLineLogin() {
     sessionStorage.setItem('line_login_intent', 'booking')
     try {
       localStorage.setItem('line_login_state', state)
+      localStorage.setItem('line_login_intent', 'booking')
+      localStorage.removeItem('line_login_return_to')
     } catch {
       // localStorage เต็ม/ถูกปิด — มี sessionStorage พอ
     }

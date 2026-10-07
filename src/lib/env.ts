@@ -46,6 +46,24 @@ export function validateEnv(): { errors: EnvIssue[]; warnings: EnvIssue[] } {
     results.warnings.push({ key: 'NEXT_PUBLIC_LINE_CHANNEL_ID', problem: `unexpected format "${lineChannelId}" (ปกติเป็นตัวเลข)`, required: false })
   }
 
+  // ---- AUTH_SECRET (เซ็นเซสชันลูกค้าเดิม + JWT ของ next-auth) ----
+  const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
+  if (authSecret === undefined || authSecret.trim() === '') {
+    results.warnings.push({ key: 'AUTH_SECRET', problem: 'missing — เซสชันลูกค้า (LINE/Google) จะใช้งานไม่ได้ (ต้อง ≥32 ตัวอักษร)', required: false })
+  } else if (authSecret.length < 32) {
+    results.warnings.push({ key: 'AUTH_SECRET', problem: `suspiciously short (${authSecret.length} chars) — ต้อง ≥32 ตัวอักษร`, required: false })
+  }
+
+  // ---- Google login (next-auth / Gmail) ----
+  const googleClientId = process.env.GOOGLE_CLIENT_ID
+  if (!googleClientId || googleClientId.trim() === '') {
+    results.warnings.push({ key: 'GOOGLE_CLIENT_ID', problem: 'missing — ปุ่ม "Continue with Google" จะใช้งานไม่ได้', required: false })
+  }
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
+  if (!googleClientSecret || googleClientSecret.trim() === '') {
+    results.warnings.push({ key: 'GOOGLE_CLIENT_SECRET', problem: 'missing — ปุ่ม "Continue with Google" จะใช้งานไม่ได้', required: false })
+  }
+
   // ---- NODE_ENV ----
   if (!['development', 'production', 'test'].includes(process.env.NODE_ENV || '')) {
     results.warnings.push({ key: 'NODE_ENV', problem: `unknown value "${process.env.NODE_ENV}"`, required: false })

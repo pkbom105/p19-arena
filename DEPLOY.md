@@ -14,9 +14,11 @@
 git clone https://github.com/pkbom105/p19-arena.git && cd p19-arena
 docker build -t p19-arena .
 docker volume create p19-db
+# Set AUTH_SECRET (random, at least 32 characters) in the host environment first.
 docker run -d --name p19-arena --restart unless-stopped \
   -p 3001:3000 \
   -v p19-db:/app/db \
+  -e AUTH_SECRET \
   p19-arena
 # ทดสอบ: curl http://localhost:3001/ → ต้องได้ 200
 ```
@@ -32,18 +34,20 @@ npm ci
 npx prisma generate
 ```
 
-## 3) ตั้งค่า environment (เฉพาะแบบ Node — แบบ Docker ไม่ต้อง)
+## 3) ตั้งค่า environment
 `.env` **ไม่ถูก commit** (ปลอดภัย) — ต้องสร้างเองบน VPS:
 ```bash
 cat > .env <<'EOF'
 DATABASE_URL="file:../db/dev.db"
+AUTH_SECRET="replace-with-a-random-secret-at-least-32-characters"
 EOF
 ```
+`AUTH_SECRET` signs LINE customer sessions and must be at least 32 characters. Replace the example with a strong unique secret and keep it private. For Docker, export it before `docker run` as shown above.
 
 ## 4) สร้างฐานข้อมูล (เฉพาะแบบ Node)
 ```bash
 mkdir -p db
-npx prisma db push        # สร้างตารางทั้งหมด (Court/TimeSlot/Equipment/User/Booking/Settings/PriceRule)
+npx prisma db push        # สร้าง/อัปเดตตาราง รวม User wallet และ TopUpRequest
 ```
 > DB เก็บที่ `db/dev.db` — **สำรองไฟล์นี้เป็นประจำ** (`cp db/dev.db ~/backups/dev-$(date +%F).db`)
 

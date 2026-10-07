@@ -64,6 +64,8 @@ export interface LineMember {
   linePictureUrl: string | null
   name: string | null
   phone: string | null
+  email: string | null
+  walletBalance?: number
   createdAt: string
   _count: { bookings: number }
 }

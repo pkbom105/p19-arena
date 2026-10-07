@@ -1,21 +1,14 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { CUSTOMER_SESSION_COOKIE, setSessionCookie } from '@/lib/session-auth'
 
 const LINE_TOKEN_URL = 'https://api.line.me/oauth2/v2.1/token'
+const LINE_VERIFY_URL = 'https://api.line.me/oauth2/v2.1/verify'
 
 interface LineIdTokenClaims {
   sub?: string
   name?: string
   picture?: string
-}
-
-function decodeIdTokenPayload(idToken: string): LineIdTokenClaims {
-  try {
-    const payload = idToken.split('.')[1]
-    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'))
-  } catch {
-    return {}
-  }
 }
 
 /**
@@ -24,9 +17,10 @@ function decodeIdTokenPayload(idToken: string): LineIdTokenClaims {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: { code?: string; redirectUri?: string } = await request.json().catch(() => ({}))
+    const body: { code?: string; redirectUri?: string; purpose?: string } = await request.json().catch(() => ({}))
     const code = body.code ?? ''
     const redirectUri = body.redirectUri ?? ''
+    const isTopUpLogin = body.purpose === 'topup'
 
     if (!code || !redirectUri) {
       return NextResponse.json({ error: 'code and redirectUri are required' }, { status: 400 })
@@ -75,7 +69,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const claims = decodeIdTokenPayload(tokenData.id_token)
+    const verifyRes = await fetch(LINE_VERIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        id_token: tokenData.id_token,
+        client_id: lineChannelId,
+      }).toString(),
+    })
+    const verifiedClaims: unknown = await verifyRes.json()
+    if (!verifyRes.ok || typeof verifiedClaims !== 'object' || verifiedClaims === null) {
+      console.error('LINE ID token verification failed:', verifiedClaims)
+      return NextResponse.json({ error: 'LINE ID token verification failed' }, { status: 401 })
+    }
+    const claims = verifiedClaims as LineIdTokenClaims
     const lineUserId = claims.sub
 
     if (!lineUserId) {
@@ -104,7 +111,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(user)
+    const response = NextResponse.json(user)
+    if (isTopUpLogin) {
+      setSessionCookie(response, CUSTOMER_SESSION_COOKIE, user.id)
+    }
+    return response
   } catch (error) {
     console.error('Error in LINE token exchange:', error)
     return NextResponse.json({ error: 'LINE token exchange failed' }, { status: 500 })

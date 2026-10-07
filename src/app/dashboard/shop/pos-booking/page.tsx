@@ -17,6 +17,12 @@ import { BookingsTable } from '@/components/pos/bookings-table'
 import { NewBookingDialog } from '@/components/pos/new-booking-dialog'
 import { EditBookingDialog } from '@/components/pos/edit-booking-dialog'
 
+/** ช่วงระดับซูมของตารางจอง (%) — ปุ่ม Zoom ในหัวหน้าใช้ค่าเหล่านี้ */
+const ZOOM_MIN = 50
+const ZOOM_MAX = 150
+const ZOOM_STEP = 10
+const ZOOM_DEFAULT = 100
+
 /**
  * POS หน้าเคาน์เตอร์ (/dashboard/pos-booking) — container
  * state + data fetching อยู่ที่นี่, UI แยกเป็น components/pos/*
@@ -33,6 +39,9 @@ export default function PosPage() {
   const [priceRules, setPriceRules] = useState<PriceRule[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
+  /** ระดับซูมของตารางจอง (%) — คุมจากปุ่ม Zoom ในหัวหน้า (มีผลกับตารางจองเท่านั้น) */
+  const [zoom, setZoom] = useState(ZOOM_DEFAULT)
 
   // Dialog: จองใหม่ (preset จากปุ่ม "จอง" ในตาราง หรือปุ่ม "จองใหม่")
   const [newPreset, setNewPreset] = useState<NewBookingPreset | null>(null)
@@ -145,7 +154,17 @@ export default function PosPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-emerald-50/50 to-background">
-      <PosHeader date={date} refreshing={refreshing} onRefresh={() => fetchData({ silent: true })} />
+      <PosHeader
+        date={date}
+        refreshing={refreshing}
+        onRefresh={() => fetchData({ silent: true })}
+        zoom={{
+          level: zoom,
+          onZoomIn: () => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP)),
+          onZoomOut: () => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP)),
+          onReset: () => setZoom(ZOOM_DEFAULT),
+        }}
+      />
       <PosMobileNav shopOnly />
 
       <div className="flex flex-1">
@@ -184,6 +203,7 @@ export default function PosPage() {
                 onBookSlot={(p) => setNewPreset(p)}
                 onNewBooking={() => setNewPreset({ bookingDate: date })}
                 onEditBooking={setEditingBooking}
+                zoom={zoom}
               />
             </TabsContent>
 

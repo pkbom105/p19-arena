@@ -23,6 +23,8 @@ interface BookingBoardProps {
   onBookSlot: (preset: { courtId: string; timeSlotId: string; bookingDate: string }) => void
   onNewBooking: () => void
   onEditBooking: (booking: BookingRow) => void
+  /** ระดับซูมของตารางจอง (%) — 100 = ขนาดปกติ (คุมจากหัวหน้า pos-booking) */
+  zoom?: number
 }
 
 /**
@@ -31,7 +33,7 @@ interface BookingBoardProps {
  */
 export function BookingBoard({
   date, onDateChange, todayStr, courts, daySlots, occupied, priceRules, dayOfWeek,
-  onBookSlot, onNewBooking, onEditBooking,
+  onBookSlot, onNewBooking, onEditBooking, zoom = 100,
 }: BookingBoardProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const selected = new Date(date + 'T00:00:00')
@@ -141,15 +143,20 @@ export function BookingBoard({
           ไม่มีช่วงเวลาสำหรับวัน{THAI_DAYS[dayOfWeek]} — เพิ่มช่วงเวลาได้ที่ Settings → ช่วงเวลา
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-white">
-          <table className="w-full border-collapse text-sm">
+        // ตารางจอง — ขนาดขยับตามระดับซูมที่เลือกจากปุ่ม Zoom ในหัวหน้า
+        <div
+          data-slot="booking-grid"
+          className="overflow-x-auto rounded-xl border bg-white"
+          style={zoom !== 100 ? { zoom: zoom / 100 } : undefined}
+        >
+          <table className="w-full border-collapse text-[15px]">
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 w-20 border-b border-r bg-muted/60 px-3 py-2 text-left text-xs font-semibold text-muted-foreground">เวลา</th>
+                <th className="sticky left-0 z-10 w-20 border-b border-r bg-muted/60 px-3 py-2 text-left text-sm font-semibold text-muted-foreground">เวลา</th>
                 {courts.map((c) => (
                   <th key={c.id} className="min-w-[9.5rem] border-b border-l px-3 py-2 text-center">
-                    <div className="text-sm font-semibold">{c.name}</div>
-                    <div className="text-[10px] font-normal text-muted-foreground">฿{c.pricePerHour.toLocaleString()}/ชม.</div>
+                    <div className="text-[15px] font-semibold">{c.name}</div>
+                    <div className="text-sm font-normal text-muted-foreground">฿{c.pricePerHour.toLocaleString()}/ชม.</div>
                   </th>
                 ))}
               </tr>
@@ -158,8 +165,8 @@ export function BookingBoard({
               {daySlots.map((slot) => (
                 <tr key={slot.id} className="border-b last:border-b-0">
                   <th className="sticky left-0 z-10 border-r bg-white px-3 py-1.5 text-left align-middle">
-                    <div className="text-xs font-semibold leading-tight">{slot.startTime}</div>
-                    <div className="text-[10px] leading-tight text-muted-foreground">{slot.endTime}</div>
+                    <div className="text-sm font-semibold leading-tight">{slot.startTime}</div>
+                    <div className="text-sm leading-tight text-muted-foreground">{slot.endTime}</div>
                   </th>
                   {courts.map((court) => {
                     const b = occupied.get(`${court.id}|${slot.id}`)
@@ -173,8 +180,8 @@ export function BookingBoard({
                             title="แก้ไขการจอง"
                             className={`flex h-16 w-full flex-col items-start justify-center gap-0.5 rounded-lg border px-2 text-left transition-colors ${meta.cellClass}`}
                           >
-                            <span className="w-full max-w-full truncate text-xs font-semibold">{b.playerName}</span>
-                            <span className="w-full max-w-full truncate text-[10px] opacity-90">
+                            <span className="w-full max-w-full truncate text-sm font-semibold">{b.playerName}</span>
+                            <span className="w-full max-w-full truncate text-sm opacity-90">
                               {meta.label}{b.racketCount > 0 ? ` • ไม้ ${b.racketCount}` : ''}
                             </span>
                           </button>
@@ -187,8 +194,8 @@ export function BookingBoard({
                       return (
                         <td key={court.id} className="border-l p-1">
                           <div className="flex h-16 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-muted bg-muted/30 text-muted-foreground/60">
-                            <span className="text-[10px] line-through">฿{price.toLocaleString()}</span>
-                            <span className="text-[10px]">ปิดรับจอง</span>
+                            <span className="text-sm line-through">฿{price.toLocaleString()}</span>
+                            <span className="text-sm">ปิดรับจอง</span>
                           </div>
                         </td>
                       )
@@ -209,9 +216,9 @@ export function BookingBoard({
                               : 'border-emerald-300 bg-emerald-50/40 hover:bg-emerald-100'
                           }`}
                         >
-                          <span className={`text-[11px] font-medium ${started ? 'text-orange-700' : 'text-emerald-700'}`}>฿{price.toLocaleString()}</span>
+                          <span className={`text-sm font-medium ${started ? 'text-orange-700' : 'text-emerald-700'}`}>฿{price.toLocaleString()}</span>
                           <span
-                            className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white ${
+                            className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-sm font-semibold text-white ${
                               started ? 'bg-orange-500 group-hover:bg-orange-600' : 'bg-emerald-600 group-hover:bg-emerald-700'
                             }`}
                           >

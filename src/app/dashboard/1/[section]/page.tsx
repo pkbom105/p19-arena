@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { DashboardView } from '@/components/dashboard/dashboard-view'
 
-const VALID_SECTIONS = ['court', 'booking', 'slip', 'activity', 'line'] as const
+const VALID_SECTIONS = ['court', 'party-match', 'booking', 'slip', 'activity', 'line'] as const
 
 export const metadata = { title: 'Dashboard — P19 Arena' }
 

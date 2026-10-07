@@ -7,7 +7,17 @@ export async function GET() {
     const users = await db.user.findMany({
       where: { lineUserId: { not: null } },
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { bookings: true } } },
+      select: {
+        id: true,
+        lineUserId: true,
+        lineDisplayName: true,
+        linePictureUrl: true,
+        name: true,
+        phone: true,
+        email: true,
+        createdAt: true,
+        _count: { select: { bookings: true } },
+      },
     })
     return NextResponse.json(users)
   } catch (error) {

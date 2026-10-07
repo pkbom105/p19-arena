@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  CalendarDays, MapPin, MessageCircle, Receipt, Trophy,
+  CalendarDays, MapPin, MessageCircle, PartyPopper, Receipt, Trophy, User, Wallet,
 } from 'lucide-react'
 
 export const DAY_OPTIONS = [
@@ -29,8 +29,10 @@ export const COURT_COLORS = [
 ]
 export const COURT_ICONS = ['1', '2', '3', '4', '5', '6']
 
+/** แท็บภายใน Dashboard ที่สลับด้วย state (หน้าอื่นมีไฟล์ page.tsx ของตัวเอง) */
 export const SECTIONS = [
   { id: 'court', label: 'Court', icon: MapPin },
+  { id: 'party-match', label: 'Party Match', icon: PartyPopper },
   { id: 'booking', label: 'Booking ticket', icon: CalendarDays },
   { id: 'slip', label: 'Slip update', icon: Receipt },
   { id: 'activity', label: 'กิจกรรม', icon: Trophy },
@@ -38,3 +40,12 @@ export const SECTIONS = [
 ] as const
 
 export type SectionId = (typeof SECTIONS)[number]['id']
+
+/**
+ * เมนูกลุ่ม ACCOUNT — แยกเป็น **หน้าของตัวเอง** (URL จริง) ไม่ได้สลับด้วย state เหมือน SECTIONS
+ * เรียงตามที่แสดงใน side menu (ต่อจากกลุ่ม DASHBOARD) — href ไม่ต้องใส่ BASE_PATH เพราะ <Link> เติมให้
+ */
+export const ACCOUNT_NAV = [
+  { id: 'account', label: 'User', icon: User, href: '/dashboard/1/account' },
+  { id: 'topup', label: 'Top up', icon: Wallet, href: '/dashboard/1/topup' },
+] as const

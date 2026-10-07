@@ -1,6 +1,6 @@
 'use client'
 
-import { apiUrl, lineRedirectUri } from '@/lib/api'
+import { apiUrl, BASE_PATH, lineRedirectUri } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { MapPin } from 'lucide-react'
@@ -18,8 +18,90 @@ export default function BookingPage() {
   const { step, setLineUser, setStep, setIsLoading, setRentalSelections } = useBookingStore()
   const [mounted, setMounted] = useState(false)
 
+  async function handleLineCallback(code: string) {
+    setIsLoading(true)
+    try {
+      const loginIntent =
+        sessionStorage.getItem('line_login_intent') || localStorage.getItem('line_login_intent')
+      const returnTo =
+        sessionStorage.getItem('line_login_return_to') || localStorage.getItem('line_login_return_to')
+      // แลก code เป็น LINE User ID จริง (server-side) -> user record เดิม -> auto-fill ได้
+      const res = await fetch(apiUrl('/api/line-token'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          purpose: loginIntent === 'topup' ? 'topup' : 'booking',
+          // ต้องตรงกับ Callback URL ที่ลงทะเบียนใน LINE console เป๊ะ และเหมือนกันทุกเครื่อง
+          redirectUri: lineRedirectUri(),
+        }),
+      })
+
+      const user = await res.json()
+
+      if (res.ok && user && user.id) {
+        setLineUser(user)
+        if (
+          loginIntent === 'topup' &&
+          returnTo === `${BASE_PATH}/account/topup`
+        ) {
+          sessionStorage.removeItem('line_login_return_to')
+          sessionStorage.removeItem('line_login_state')
+          sessionStorage.removeItem('line_login_intent')
+          try {
+            localStorage.removeItem('line_login_state')
+            localStorage.removeItem('line_login_return_to')
+            localStorage.removeItem('line_login_intent')
+          } catch {
+            // ignore
+          }
+          window.location.assign(returnTo)
+          return
+        }
+      } else {
+        console.error('LINE auth error:', user?.error || res.status)
+        // code ใช้ซ้ำ/หมดอายุ (กด refresh ตอนหน้า callback) = invalid_grant — ให้ลอง login ใหม่
+        toast.error(user?.error || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณากดเข้าสู่ระบบอีกครั้ง')
+        if (
+          loginIntent === 'topup' &&
+          returnTo === `${BASE_PATH}/account/topup`
+        ) {
+          sessionStorage.removeItem('line_login_return_to')
+          sessionStorage.removeItem('line_login_state')
+          sessionStorage.removeItem('line_login_intent')
+          try {
+            localStorage.removeItem('line_login_state')
+            localStorage.removeItem('line_login_return_to')
+            localStorage.removeItem('line_login_intent')
+          } catch {
+            // ignore
+          }
+          window.location.assign(returnTo)
+          return
+        }
+      }
+
+      setStep(2)
+      sessionStorage.removeItem('line_login_state')
+      sessionStorage.removeItem('line_login_intent')
+      try {
+        localStorage.removeItem('line_login_state')
+        localStorage.removeItem('line_login_intent')
+        localStorage.removeItem('line_login_return_to')
+      } catch {
+        // ignore
+      }
+    } catch (err) {
+      console.error('LINE auth error:', err)
+      toast.error('เชื่อมต่อ LINE ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่')
+      setStep(2)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    setMounted(true)
+    const mountFrame = window.requestAnimationFrame(() => setMounted(true))
 
     // Seed data on first load
     fetch(apiUrl('/api/seed'), { method: 'POST' }).catch(() => {})
@@ -83,7 +165,22 @@ export default function BookingPage() {
 
     if (oauthError) {
       toast.error(`LINE Login ไม่สำเร็จ: ${params.get('error_description') || oauthError}`)
-      window.history.replaceState({}, '', '/')
+      const returnTo =
+        sessionStorage.getItem('line_login_return_to') || localStorage.getItem('line_login_return_to')
+      window.history.replaceState({}, '', `${BASE_PATH}/`)
+      if (returnTo === `${BASE_PATH}/account/topup`) {
+        sessionStorage.removeItem('line_login_return_to')
+        sessionStorage.removeItem('line_login_state')
+        sessionStorage.removeItem('line_login_intent')
+        try {
+          localStorage.removeItem('line_login_return_to')
+          localStorage.removeItem('line_login_state')
+          localStorage.removeItem('line_login_intent')
+        } catch {
+          // ignore
+        }
+        window.location.assign(returnTo)
+      }
       return
     }
 
@@ -94,51 +191,11 @@ export default function BookingPage() {
 
       if (savedState === state) {
         handleLineCallback(code)
-        window.history.replaceState({}, '', '/')
+        window.history.replaceState({}, '', `${BASE_PATH}/`)
       }
     }
+    return () => window.cancelAnimationFrame(mountFrame)
   }, [])
-
-  const handleLineCallback = async (code: string) => {
-    setIsLoading(true)
-    try {
-      // แลก code เป็น LINE User ID จริง (server-side) -> user record เดิม -> auto-fill ได้
-      const res = await fetch(apiUrl('/api/line-token'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code,
-          // ต้องตรงกับ Callback URL ที่ลงทะเบียนใน LINE console เป๊ะ และเหมือนกันทุกเครื่อง
-          redirectUri: lineRedirectUri(),
-        }),
-      })
-
-      const user = await res.json()
-
-      if (res.ok && user && user.id) {
-        setLineUser(user)
-      } else {
-        console.error('LINE auth error:', user?.error || res.status)
-        // code ใช้ซ้ำ/หมดอายุ (กด refresh ตอนหน้า callback) = invalid_grant — ให้ลอง login ใหม่
-        toast.error(user?.error || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณากดเข้าสู่ระบบอีกครั้ง')
-      }
-
-      setStep(2)
-      sessionStorage.removeItem('line_login_state')
-      sessionStorage.removeItem('line_login_intent')
-      try {
-        localStorage.removeItem('line_login_state')
-      } catch {
-        // ignore
-      }
-    } catch (err) {
-      console.error('LINE auth error:', err)
-      toast.error('เชื่อมต่อ LINE ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่')
-      setStep(2)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   if (!mounted) {
     return (

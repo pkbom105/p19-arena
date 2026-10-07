@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Printer, Receipt } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { generatePromptPayQR } from '@/components/qrcode'
 import { ReceiptA5, ReceiptPrintRoot } from './receipt-a5'
 import type { ShopBill } from './types'
+import { DEFAULT_RECEIPT_BRANDING, receiptBrandingFromSettings, type ReceiptBranding } from '@/lib/receipt-branding'
 
 /**
  * Dialog ใบเสร็จหลังปิดบิล — โชว์ตัวอย่าง A5 แนวตั้ง + ปุ่มพิมพ์ออกกระดาษ
@@ -24,6 +26,22 @@ export function ReceiptDialog({ bill, open, onOpenChange, autoPrint = false }: {
   /** timer สั่งพิมพ์ + เลขที่บิลที่พิมพ์ไปแล้ว (ไม่ยกเลิก timer เมื่อ state อื่นเปลี่ยน) */
   const printTimerRef = useRef<number | null>(null)
   const printedBillRef = useRef<number | null>(null)
+  /** หัวใบเสร็จ (โลโก้/ชื่อร้าน/หัวข้อ ฯลฯ) — ดึงจาก Settings ทุกครั้งที่เปิด เพื่อให้ใบเสร็จที่พิมพ์ใช้ค่าล่าสุด */
+  const [branding, setBranding] = useState<ReceiptBranding>(DEFAULT_RECEIPT_BRANDING)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetch(apiUrl('/api/settings'), { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((kv) => {
+        if (!cancelled) setBranding(receiptBrandingFromSettings(kv))
+      })
+      .catch((err) => console.error('Failed to fetch receipt branding', err))
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   // สร้าง PromptPay QR ของยอดบิลนี้ (ตัวเดียวกับที่หน้า booking ใช้)
   useEffect(() => {
@@ -75,7 +93,7 @@ export function ReceiptDialog({ bill, open, onOpenChange, autoPrint = false }: {
           </DialogHeader>
 
           <div className="max-h-[60vh] overflow-auto rounded-lg bg-slate-100 p-3">
-            <ReceiptA5 bill={bill} qrDataUrl={qrForThisBill} />
+            <ReceiptA5 bill={bill} qrDataUrl={qrForThisBill} branding={branding} />
           </div>
 
           <DialogFooter className="gap-2">
@@ -89,7 +107,7 @@ export function ReceiptDialog({ bill, open, onOpenChange, autoPrint = false }: {
         </DialogContent>
       </Dialog>
 
-      <ReceiptPrintRoot bill={bill} qrDataUrl={qrForThisBill} />
+      <ReceiptPrintRoot bill={bill} qrDataUrl={qrForThisBill} branding={branding} />
     </>
   )
 }
