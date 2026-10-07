@@ -15,6 +15,7 @@ export async function GET() {
         name: true,
         phone: true,
         email: true,
+        walletBalance: true,
         createdAt: true,
         _count: { select: { bookings: true } },
       },

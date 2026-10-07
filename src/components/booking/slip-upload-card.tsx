@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-
-const MAX_SLIP_SIZE = 300 * 1024 // 300kB — ตรงกับ step-confirm และ /api/my-bookings
+import { MAX_SLIP_SIZE } from '@/components/dashboard/slip-helpers'
 
 /**
  * การ์ด "ส่งสลิปการชำระเงิน" (หน้า /check) — แสดงใต้ปุ่มสแกน QR

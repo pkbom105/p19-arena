@@ -55,6 +55,14 @@ export default function CheckBookingPage() {
       } else {
         setBookings(rows)
       }
+      // พบผลลัพธ์ → เลื่อนไปยังส่วน "พบตั๋ว" (anchor #check-results) หลัง DOM อัปเดต
+      if (rows.length > 0) {
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            document.getElementById('check-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          )
+        )
+      }
     } catch {
       setBookings([])
       setFoundIds([])
@@ -158,7 +166,7 @@ export default function CheckBookingPage() {
         )}
 
         {views.length > 0 && (
-          <>
+          <div id="check-results" className="space-y-2 scroll-mt-50">
             <p className="text-xs text-muted-foreground">
               พบตั๋ว {views.length} ใบ{bookings.length > views.length ? ` (จาก ${bookings.length} รายการ)` : ''}
             </p>
@@ -168,20 +176,16 @@ export default function CheckBookingPage() {
                 return (
                   <div key={lead.id} className="space-y-1.5">
                     {/* ใบเดียวต่อกลุ่มเวลาติดกัน — เวลา/ชั่วโมง/โค้ชเป็นของทั้งใบ, รหัสใช้ของแถวแรก */}
-                    <BookingTicket booking={mergeTicketView(lead, view)} hideActions />
-                    <Link
-                      href={apiUrl(`/ticket/${lead.ticketCode || lead.id}`)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-center text-xs text-emerald-600 underline hover:text-emerald-700 break-all"
-                    >
-                      เปิดหน้าตั๋วออนไลน์ →
-                    </Link>
+                    {/* แสดงปุ่ม ดู (Eye) + ดาวน์โหลด (Download) — ปุ่มอื่นไม่ขึ้นเพราะไม่ได้ส่ง handler มา */}
+                    <BookingTicket
+                      booking={mergeTicketView(lead, view)}
+                      ticketHref={apiUrl(`/ticket/${lead.ticketCode || lead.id}`)}
+                    />
                   </div>
                 )
               })}
             </div>
-          </>
+          </div>
         )}
       </main>
 

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
+import { sanitizeSlipVerify } from '@/lib/slip-verify'
 import { generateTicketCode } from '@/lib/ticket-code'
 import { format, addDays } from 'date-fns'
 import { th } from 'date-fns/locale'
@@ -101,10 +102,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/** แปลงผลตรวจสลิป (จาก client) → ฟิลด์ที่บันทึกลง DB — ใช้ตัวช่วยกลางจาก lib/slip-verify */
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { courtId, timeSlotId, bookingDate, playerName, playerPhone, playerEmail, note, userId, racketCount, slipName, slipDataUrl, status, coachId, coachBookingId, coachStartTimes } = body
+    const { courtId, timeSlotId, bookingDate, playerName, playerPhone, playerEmail, note, userId, racketCount, slipName, slipDataUrl, status, coachId, coachBookingId, coachStartTimes, verify } = body
 
     if (!courtId || !timeSlotId || !bookingDate || !playerName || !playerPhone) {
       return NextResponse.json(
@@ -193,6 +196,8 @@ export async function POST(request: NextRequest) {
 
     // สถานะเริ่มต้น 'confirmed' (ชำระแล้ว) — POS หน้าเคาน์เตอร์ส่ง 'pending' มาได้เมื่อลูกค้ายังไม่จ่าย
     const initialStatus = status === 'pending' ? 'pending' : 'confirmed'
+    // ผลตรวจสลิป (Slip2Go) ส่งมาจากหน้าจอง — บันทึกไว้ตามรอย
+    const verifyData = sanitizeSlipVerify(verify)
 
     let booking
     if (existing) {
@@ -211,6 +216,7 @@ export async function POST(request: NextRequest) {
           slipDataUrl: slipDataUrl || null,
           status: initialStatus,
           ticketCode: generateTicketCode(),
+          ...verifyData,
         },
         include: { court: true, timeSlot: true },
       })
@@ -228,6 +234,7 @@ export async function POST(request: NextRequest) {
         slipName: slipName || null,
         slipDataUrl: slipDataUrl || null,
         status: initialStatus,
+        ...verifyData,
       })
     }
 

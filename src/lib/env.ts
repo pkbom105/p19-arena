@@ -64,6 +64,12 @@ export function validateEnv(): { errors: EnvIssue[]; warnings: EnvIssue[] } {
     results.warnings.push({ key: 'GOOGLE_CLIENT_SECRET', problem: 'missing — ปุ่ม "Continue with Google" จะใช้งานไม่ได้', required: false })
   }
 
+  // ---- Slip2Go (ตรวจสลิป) ----
+  const slip2goSecret = process.env.SLIP2GO_SECRET
+  if (!slip2goSecret || slip2goSecret.trim() === '') {
+    results.warnings.push({ key: 'SLIP2GO_SECRET', problem: 'missing — ฟีเจอร์ตรวจสลิป (Slip2Go) จะใช้งานไม่ได้', required: false })
+  }
+
   // ---- NODE_ENV ----
   if (!['development', 'production', 'test'].includes(process.env.NODE_ENV || '')) {
     results.warnings.push({ key: 'NODE_ENV', problem: `unknown value "${process.env.NODE_ENV}"`, required: false })

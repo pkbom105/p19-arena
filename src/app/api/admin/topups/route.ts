@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { sanitizeSlipVerify } from '@/lib/slip-verify'
 
 export async function GET(request: Request) {
   try {
@@ -93,6 +94,8 @@ function dataUrlBytes(dataUrl: string): number {
   return Math.floor((base64.length * 3) / 4) - padding
 }
 
+/** แปลงผลตรวจสลิป (ส่งมาจาก client) → ฟิลด์ที่บันทึกลง DB — ใช้ตัวช่วยกลางจาก lib/slip-verify */
+
 /**
  * บันทึกคำขอ Top-up ที่เคาน์เตอร์ — ผูก record กับลูกค้าใน DB (userId) สถานะตั้งต้น = pending
  * แล้วค่อยกดอนุมัติผ่าน PATCH เพื่อให้ยอดเข้ากระเป๋าลูกค้า
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
     if (typeof body !== 'object' || body === null) {
       return NextResponse.json({ error: 'Invalid top-up request' }, { status: 400 })
     }
-    const { userId, amount, slipName, slipDataUrl } = body as Record<string, unknown>
+    const { userId, amount, slipName, slipDataUrl, verify } = body as Record<string, unknown>
 
     if (typeof userId !== 'string' || !userId) {
       return NextResponse.json({ error: 'Select the customer this slip belongs to' }, { status: 400 })
@@ -148,7 +151,7 @@ export async function POST(request: Request) {
     }
 
     const created = await db.topUpRequest.create({
-      data: { userId, amount: Math.round(amount), slipName: safeSlipName, slipDataUrl },
+      data: { userId, amount: Math.round(amount), slipName: safeSlipName, slipDataUrl, ...sanitizeSlipVerify(verify) },
       include: {
         user: {
           select: { id: true, lineDisplayName: true, name: true, phone: true, linePictureUrl: true },

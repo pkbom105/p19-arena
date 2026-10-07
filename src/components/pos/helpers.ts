@@ -5,15 +5,8 @@ import { getSlotPrice, type PriceRule } from '@/lib/price'
 import { toast } from 'sonner'
 import type { BookingRow, Court } from './types'
 
-export const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-export const THAI_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
-
-/** "2026-09-16" -> "อังคาร 16 ก.ย. 2568" */
-export function formatThaiDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  if (isNaN(d.getTime())) return dateStr
-  return `${THAI_DAYS[d.getDay()]} ${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`
-}
+// อาร์เรย์เดือน/วันไทย + ตัวจัดรูปแบบวันที่ — ใช้ตัวกลางจาก lib/thai-date (เดิมนิยามซ้ำในไฟล์นี้)
+export { THAI_MONTHS, THAI_DAYS, formatThaiDateFullDay as formatThaiDate } from '@/lib/thai-date'
 
 export const STATUS_META: Record<string, { label: string; badgeClass: string; cellClass: string }> = {
   pending: {

@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
     const body: { code?: string; redirectUri?: string; purpose?: string } = await request.json().catch(() => ({}))
     const code = body.code ?? ''
     const redirectUri = body.redirectUri ?? ''
-    const isTopUpLogin = body.purpose === 'topup'
 
     if (!code || !redirectUri) {
       return NextResponse.json({ error: 'code and redirectUri are required' }, { status: 400 })
@@ -112,9 +111,8 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json(user)
-    if (isTopUpLogin) {
-      setSessionCookie(response, CUSTOMER_SESSION_COOKIE, user.id)
-    }
+    // ออกเซสชันลูกค้าให้ทุกการ login (ทั้งจองและเติมเงิน) — หน้าแรกจะได้จำสถานะ ไม่ต้องล็อกอินซ้ำ
+    setSessionCookie(response, CUSTOMER_SESSION_COOKIE, user.id)
     return response
   } catch (error) {
     console.error('Error in LINE token exchange:', error)

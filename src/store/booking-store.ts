@@ -66,6 +66,14 @@ export interface PaymentSlip {
   dataUrl: string
   name: string
   size: number
+  /** ผลตรวจสลิป (Slip2Go) ที่แนบมาจากขั้นสรุป — บันทึกตอนยืนยันการจอง */
+  verify?: {
+    status: 'ok' | 'fail' | 'error'
+    code: string | null
+    amount: number | null
+    receiver: string | null
+    transRef: string | null
+  } | null
 }
 
 /** โค้ชที่เลือกมาจากหน้า /activity/coach (?coach= → sessionStorage) — คิดเงินรวมกับค่าสนาม */

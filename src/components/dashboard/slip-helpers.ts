@@ -17,14 +17,8 @@ export interface SlipBooking {
   timeSlot: { id: string; startTime: string; endTime: string }
 }
 
-export const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-
-/** "2026-09-16" -> "16 ก.ย. 2569" */
-export function formatThaiDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  if (isNaN(d.getTime())) return dateStr
-  return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`
-}
+// อาร์เรย์เดือน + ตัวจัดรูปแบบวันที่ไทย — ใช้ตัวกลางจาก lib/thai-date
+export { THAI_MONTHS, formatThaiDate } from '@/lib/thai-date'
 
 export const STATUS_META: Record<string, { label: string; className: string }> = {
   pending: { label: 'รอชำระ', className: 'bg-amber-100 text-amber-800 border-amber-200' },

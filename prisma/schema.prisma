@@ -69,6 +69,13 @@ model TopUpRequest {
   slipDataUrl  String
   status       String   @default("pending")
   reviewedAt   DateTime?
+  // ผลตรวจสลิป (Slip2Go) — ไว้ตามรอยตอนอนุมัติ/ปฏิเสธ
+  verifyStatus   String?
+  verifyCode     String?
+  verifyAmount   Int?
+  verifyReceiver String?
+  verifyTransRef String?
+  verifiedAt     DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -92,6 +99,13 @@ model Booking {
   racketCount   Int      @default(0)
   slipName      String?
   slipDataUrl   String?
+  // ผลตรวจสลิป (Slip2Go) — ไว้ตามรอย
+  verifyStatus   String?
+  verifyCode     String?
+  verifyAmount   Int?
+  verifyReceiver String?
+  verifyTransRef String?
+  verifiedAt     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

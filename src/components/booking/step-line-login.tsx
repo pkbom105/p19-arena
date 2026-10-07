@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { MessageCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { absoluteUrl, apiUrl, lineRedirectUri } from '@/lib/api'
+import { absoluteUrl, apiUrl, lineRedirectUri, BASE_PATH } from '@/lib/api'
+import { signIn } from 'next-auth/react'
 import { useBookingStore } from '@/store/booking-store'
 
 const LINE_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || 'YOUR_CHANNEL_ID'
@@ -28,6 +29,18 @@ function makeState(): string {
     for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256)
   }
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** โลโก้ Google (ตามแบรนด์ไกด์ของ Google) — ใช้ในปุ่ม "เข้าสู่ระบบด้วย Google" */
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.86c2.26-2.09 3.56-5.17 3.56-8.87z" />
+      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A11.99 11.99 0 0 0 12 24z" />
+      <path fill="#FBBC05" d="M5.27 14.29a7.2 7.2 0 0 1 0-4.58V6.62H1.29a11.99 11.99 0 0 0 0 10.76l3.98-3.09z" />
+      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.7 0 3.99 2.47 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z" />
+    </svg>
+  )
 }
 
 export function StepLineLogin() {
@@ -85,10 +98,21 @@ export function StepLineLogin() {
     setStep(2)
   }
 
+  /** เข้าสู่ระบบด้วย Google (next-auth) — กลับมาที่หน้าแรก แล้ว page.tsx จะ sync ผู้ใช้เข้ากระบวนการจอง */
+  const handleGoogleLogin = () => {
+    try {
+      sessionStorage.setItem('google_login_intent', 'booking')
+      localStorage.setItem('google_login_intent', 'booking')
+    } catch {
+      // storage ถูกปิด — ยัง login ได้ (แค่ไม่บันทึก intent)
+    }
+    void signIn('google', { callbackUrl: `${BASE_PATH}/` })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <h2 className="text-lg font-semibold">เข้าสู่ระบบด้วย LINE</h2>
+        <h2 className="text-lg font-semibold">เข้าสู่ระบบ</h2>
       </div>
 
       <Card className="border-emerald-200">
@@ -97,7 +121,7 @@ export function StepLineLogin() {
             <MessageCircle className="h-10 w-10 text-green-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-lg">เข้าสู่ระบบด้วย LINE</h3>
+            <h3 className="font-semibold text-lg">เข้าสู่ระบบ</h3>
             <p className="text-sm text-muted-foreground mt-2">
               เข้าสู่ระบบเพื่อยืนยันตัวตนและรับการแจ้งเตือนผ่าน LINE OA
               ของ P19 Pickleball Arena
@@ -105,6 +129,16 @@ export function StepLineLogin() {
           </div>
 
           <div className="space-y-3 pt-2">
+            <Button
+              variant="outline"
+              className="w-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-medium py-6 text-base"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+            >
+              <GoogleIcon className="h-5 w-5 mr-2" />
+              เข้าสู่ระบบด้วย Google
+            </Button>
+
             <Button
               className="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-6 text-base"
               onClick={handleLineLogin}

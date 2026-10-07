@@ -16,21 +16,25 @@ export default function AccountPage() {
   const [settings, setSettings] = useState<Settings>({})
   const [lineMembers, setLineMembers] = useState<LineMember[]>([])
   const [msgStatus, setMsgStatus] = useState<MessagingStatus | null>(null)
+  const [googleConfigured, setGoogleConfigured] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const [sRes, uRes, mRes] = await Promise.all([
+      const [sRes, uRes, mRes, gRes] = await Promise.all([
         fetch(apiUrl('/api/settings')),
         fetch(apiUrl('/api/users')),
         fetch(apiUrl('/api/line-messaging')),
+        fetch(apiUrl('/api/auth/status')),
       ])
       setSettings(await sRes.json())
       const users = await uRes.json()
       if (Array.isArray(users)) setLineMembers(users)
       const msg = await mRes.json().catch(() => null)
       if (msg && !msg.error) setMsgStatus(msg)
+      const status = await gRes.json().catch(() => null)
+      if (status && typeof status.google?.configured === 'boolean') setGoogleConfigured(status.google.configured)
     } catch (err) {
       console.error('Failed to load account data', err)
     } finally {
@@ -77,6 +81,7 @@ export default function AccountPage() {
           saving={saving}
           handleSaveAccount={handleSaveAccount}
           lineConnected={lineConnected}
+          googleConfigured={googleConfigured}
           oaBasicId={oaBasicId}
           msgStatus={msgStatus}
           lineMembers={lineMembers}

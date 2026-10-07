@@ -2,7 +2,7 @@
 
 import { apiUrl } from '@/lib/api'
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { User, Phone, Plus, Trash2, CalendarDays, MapPin, Clock, ClipboardList, Wrench, Minus, QrCode, Loader2, CheckCircle2, Download, Dumbbell, GraduationCap } from 'lucide-react'
+import { User, Phone, Plus, Trash2, CalendarDays, MapPin, Clock, ClipboardList, Wrench, Minus, QrCode, Loader2, CheckCircle2, Download, Dumbbell, GraduationCap, UploadCloud, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,20 +15,10 @@ import type { BookingItem, RentalItem, BookingData, CoachSelection } from '@/sto
 import { COACH_PACKAGES } from '@/components/activity/coaches'
 import { getItemPriceWithRules, type PriceRule } from '@/lib/price'
 import { generatePromptPayQR } from '@/components/qrcode'
+import { useSlip2GoVerify, Slip2GoStatus, toSlipVerifyPayload } from '@/components/slip2go-qr'
 import { toPng } from 'html-to-image'
-
-const THAI_MONTHS = [
-  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
-]
-
-const THAI_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00')
-  const dayName = THAI_DAYS[d.getDay()]
-  return `${dayName} ${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`
-}
+import { MAX_SLIP_SIZE } from '@/components/dashboard/slip-helpers'
+import { formatThaiDateWithDay as formatDate } from '@/lib/thai-date'
 
 function formatPrice(amount: number) {
   return amount.toLocaleString()
@@ -273,13 +263,18 @@ function CoachAddCard({
 }
 
 export function StepSummary() {
-  const { bookingItems, removeBookingItem, setStep, goToStep, rentalSelections, setRentalSelections, updateRentalQuantity, priceRules, setPriceRules, bookingForm, setBookingForm, lineUser, coach, setCoach, coachHours, setCoachHours, coachTickedKeys, setCoachTickedKeys } = useBookingStore()
+  const { bookingItems, removeBookingItem, setStep, goToStep, rentalSelections, setRentalSelections, updateRentalQuantity, priceRules, setPriceRules, bookingForm, setBookingForm, lineUser, coach, setCoach, coachHours, setCoachHours, coachTickedKeys, setCoachTickedKeys, setSlip } = useBookingStore()
   const [equipment, setEquipment] = useState<RentalItem[]>([])
   const [equipLoading, setEquipLoading] = useState(true)
   const [qrOpen, setQrOpen] = useState(false)
   const [qrLoading, setQrLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const [paid, setPaid] = useState(false)
+  /** สลิปที่อัปโหลดในไดอะล็อก PromptPay (commit ลง store เมื่อกดยืนยัน) */
+  const [dialogSlip, setDialogSlip] = useState<{ dataUrl: string; name: string; size: number } | null>(null)
+  const [slipError, setSlipError] = useState<string | null>(null)
+  const slipInputRef = useRef<HTMLInputElement>(null)
+  /** ตรวจสลิปด้วย Slip2Go (component กลาง) */
+  const { status: verifyStatus, run: runSlipVerify, reset: resetSlipVerify } = useSlip2GoVerify()
   const qrReceiptRef = useRef<HTMLDivElement>(null)
   const [qrDownloading, setQrDownloading] = useState(false)
   const [bookerErrors, setBookerErrors] = useState<Record<string, string>>({})
@@ -458,7 +453,9 @@ export function StepSummary() {
     // ติ๊กชั่วโมงโค้ชไม่ครบตามเงื่อนไข → ห้ามจ่ายเงิน
     if (!coachReady) return
     setQrOpen(true)
-    setPaid(false)
+    setDialogSlip(null)
+    setSlipError(null)
+    resetSlipVerify()
     setQrLoading(true)
     setQrDataUrl(null)
     try {
@@ -473,6 +470,49 @@ export function StepSummary() {
 
   const handleCloseQr = () => {
     setQrOpen(false)
+  }
+
+  /** เลือกไฟล์สลิปในไดอะล็อก PromptPay — ตรวจชนิด/ขนาด แล้วอ่านข้อมูล + ตรวจกับ Slip2Go */
+  const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    setSlipError(null)
+    if (!file) return
+    const isImage = file.type === 'image/jpeg' || file.type === 'image/png'
+    if (!isImage) {
+      setSlipError('รองรับเฉพาะไฟล์ .jpg หรือ .png เท่านั้น')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_SLIP_SIZE) {
+      setSlipError(`ไฟล์ใหญ่เกินไป (สูงสุด 300kB) — ไฟล์นี้ ${Math.ceil(file.size / 1024)}kB`)
+      e.target.value = ''
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = String(reader.result)
+      setDialogSlip({ dataUrl, name: file.name, size: file.size })
+      void runSlipVerify(dataUrl, totalPrice)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveSlip = () => {
+    setDialogSlip(null)
+    setSlipError(null)
+    resetSlipVerify()
+    if (slipInputRef.current) slipInputRef.current.value = ''
+  }
+
+  /** ยืนยันสลิป → เก็บลง store แล้วไปหน้าถัดไป (step 4 = ยืนยันการจอง) */
+  const handleConfirmSlip = () => {
+    if (!dialogSlip) {
+      setSlipError('กรุณาอัปโหลดสลิปการชำระเงินก่อนกดยืนยัน')
+      return
+    }
+    setSlip({ ...dialogSlip, verify: toSlipVerifyPayload(verifyStatus) })
+    setQrOpen(false)
+    setStep(4)
   }
 
   const handleDownloadQr = async () => {
@@ -726,26 +766,7 @@ export function StepSummary() {
       {/* PromptPay Payment Dialog */}
       <Dialog open={qrOpen} onOpenChange={(open) => { if (!open) handleCloseQr() }}>
         <DialogContent className="sm:max-w-md">
-          {paid ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-emerald-700">
-                  <CheckCircle2 className="h-5 w-5" />
-                  ชำระเงินสำเร็จ
-                </DialogTitle>
-              </DialogHeader>
-              <div className="text-center py-4 space-y-3">
-                <p className="text-sm text-muted-foreground">ขอบคุณที่ชำระเงินเรียบร้อย</p>
-                <div className="text-lg font-bold text-emerald-700">฿{formatPrice(totalPrice)}</div>
-              </div>
-              <DialogFooter>
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => { setQrOpen(false); setStep(4) }}>
-                  ดำเนินการต่อ
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <>
+          <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <QrCode className="h-5 w-5 text-emerald-600" />
@@ -814,17 +835,52 @@ export function StepSummary() {
                   </Button>
                 )}
               </div>
+              {dialogSlip ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <span className="text-xs truncate">{dialogSlip.name}</span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveSlip}
+                      className="p-1 rounded-md text-red-500 hover:bg-red-50 shrink-0"
+                      aria-label="ลบสลิป"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Slip2GoStatus status={verifyStatus} prefix="ตรวจสลิป" />
+                </div>
+              ) : null}
+              {slipError && <p className="text-xs text-red-500">{slipError}</p>}
+
+              <input
+                ref={slipInputRef}
+                type="file"
+                accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={handleSlipChange}
+              />
+
               <DialogFooter className="gap-2">
                 <Button variant="outline" className="flex-1" onClick={handleCloseQr}>
                   ยกเลิก
                 </Button>
-                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => setPaid(true)}>
-                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                  ชำระเงินแล้ว
-                </Button>
+                {dialogSlip ? (
+                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={handleConfirmSlip}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    ยืนยัน
+                  </Button>
+                ) : (
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => slipInputRef.current?.click()}
+                  >
+                    <UploadCloud className="h-4 w-4 mr-1" />
+                    อัปโหลดสลิป
+                  </Button>
+                )}
               </DialogFooter>
             </>
-          )}
         </DialogContent>
       </Dialog>
 

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { CheckCircle2, Loader2, QrCode, ScanText, UploadCloud, Wallet, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { generatePromptPayQR } from '@/components/qrcode'
+import { useSlip2GoVerify, Slip2GoStatus, toSlipVerifyPayload, type SlipVerifyOutcome, type SlipVerifyPayload } from '@/components/slip2go-qr'
 import { MAX_SLIP_SIZE } from './slip-helpers'
 
 interface CashCard {
@@ -57,6 +58,8 @@ interface TopupCardsPanelProps {
     amount: number
     slipName: string
     slipDataUrl: string
+    /** ผลตรวจสลิป (Slip2Go) — ไว้บันทึกใน DB */
+    verify: SlipVerifyPayload | null
   }) => Promise<{ ok: boolean; error?: string }>
 }
 
@@ -83,6 +86,11 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
   const [ocrAmount, setOcrAmount] = useState<number | null>(null)
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrError, setOcrError] = useState<string | null>(null)
+  /** ตรวจสลิปกับ Slip2Go (component กลาง) — เก็บผลลัพธ์ไว้ส่งไปกับ onConfirmed */
+  const verifyOutcomeRef = useRef<SlipVerifyOutcome | null>(null)
+  const { status: verifyStatus, run: runSlipVerify, reset: resetSlipVerify } = useSlip2GoVerify((outcome) => {
+    verifyOutcomeRef.current = outcome
+  })
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [qrAmount, setQrAmount] = useState<number | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
@@ -95,6 +103,7 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
     setQrDataUrl(null)
     setQrAmount(null)
     setSlipConfirmed(null)
+    resetSlipVerify()
   }
 
   const generateQr = async () => {
@@ -158,6 +167,7 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
       setSlipDataUrl(dataUrl)
       setSlipName(file.name)
       void readSlipAmount(dataUrl)
+      void runSlipVerify(dataUrl, selected.pay)
     }
     reader.readAsDataURL(file)
   }
@@ -168,6 +178,7 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
     setSlipError(null)
     setOcrAmount(null)
     setOcrError(null)
+    resetSlipVerify()
     if (slipInputRef.current) slipInputRef.current.value = ''
   }
 
@@ -186,6 +197,7 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
       amount,
       slipName: slipName ?? 'payment-slip',
       slipDataUrl,
+      verify: verifyOutcomeRef.current ? toSlipVerifyPayload(verifyOutcomeRef.current) : null,
     })
     setSlipSaving(false)
     // สลิปซ้ำ / บันทึกไม่ผ่าน → คงไฟล์ไว้ให้เปลี่ยนสลิป แล้วโชว์เหตุผล ไม่ขึ้นสถานะยืนยันแล้ว
@@ -331,6 +343,8 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
                 )}
               </div>
               {ocrError && <p className="text-xs text-red-500">{ocrError}</p>}
+
+              <Slip2GoStatus status={verifyStatus} prefix="ตรวจสลิป" />
 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">

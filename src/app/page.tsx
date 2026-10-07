@@ -4,13 +4,13 @@ import { apiUrl, BASE_PATH, lineRedirectUri } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { MapPin } from 'lucide-react'
+import { getSession } from 'next-auth/react'
 import { SiteHeader } from '@/components/site-header'
 import { StepperHeader } from '@/components/booking/stepper-header'
 import { StepLineLogin } from '@/components/booking/step-line-login'
 import { StepGrid } from '@/components/booking/step-grid'
 import { StepSummary } from '@/components/booking/step-summary'
 import { StepConfirm } from '@/components/booking/step-confirm'
-import { StepSuccess } from '@/components/booking/step-success'
 import { useBookingStore } from '@/store/booking-store'
 import type { BookingItem, RentalItem } from '@/store/booking-store'
 
@@ -163,6 +163,12 @@ export default function BookingPage() {
     // LINE ส่ง error กลับมาทาง query (เช่น error=access_denied) — แจ้งผู้ใช้แทนการเงียบ
     const oauthError = params.get('error')
 
+    // อ่าน step จาก URL (?step=N) — refresh/แชร์ลิงก์แล้วอยู่ step เดิม
+    const stepParam = Number(params.get('step'))
+    if (Number.isInteger(stepParam) && stepParam >= 1 && stepParam <= 4) {
+      setStep(stepParam)
+    }
+
     if (oauthError) {
       toast.error(`LINE Login ไม่สำเร็จ: ${params.get('error_description') || oauthError}`)
       const returnTo =
@@ -197,6 +203,115 @@ export default function BookingPage() {
     return () => window.cancelAnimationFrame(mountFrame)
   }, [])
 
+  // กลับจาก Google (next-auth) → sync ผู้ใช้ แล้วเข้าสู่กระบวนการจอง (ข้ามขั้น login)
+  useEffect(() => {
+    let cancelled = false
+    let intent: string | null = null
+    try {
+      intent = sessionStorage.getItem('google_login_intent') || localStorage.getItem('google_login_intent')
+    } catch {
+      intent = null
+    }
+    if (!intent) return
+
+    const syncGoogleUser = async () => {
+      try {
+        const googleSession = await getSession()
+        const googleId = (googleSession?.user as { googleId?: string } | undefined)?.googleId
+        if (!googleId) return
+
+        const res = await fetch(apiUrl('/api/auth/google/sync'), { method: 'POST' })
+        if (!res.ok) throw new Error(`Google sync failed (${res.status})`)
+        const u: { id: string; name: string | null; email: string | null } = await res.json()
+        if (cancelled) return
+
+        setLineUser({
+          id: u.id,
+          lineUserId: '',
+          lineDisplayName: null,
+          linePictureUrl: null,
+          name: u.name,
+          phone: null,
+          email: u.email,
+        })
+        try {
+          sessionStorage.removeItem('google_login_intent')
+          localStorage.removeItem('google_login_intent')
+        } catch {
+          // ignore
+        }
+        setStep(2)
+      } catch (error) {
+        console.error('Google login sync failed', error)
+        if (!cancelled) toast.error('เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่')
+      }
+    }
+
+    void syncGoogleUser()
+    return () => { cancelled = true }
+  }, [setLineUser, setStep])
+
+  // จำสถานะล็อกอินเดิม — ถ้าเคยล็อกอิน (cookie p19_customer_session ยังไม่หมดอายุ) ให้ข้ามหน้าล็อกอินไปเลย
+  useEffect(() => {
+    // กำลังกลับจาก callback LINE (มี code + state) → ปล่อยให้ effect ด้านบนจัดการ
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('code') && params.get('state')) return
+
+    // กำลังกลับจาก Google (มี intent ค้างอยู่) → ปล่อยให้ effect Google จัดการ
+    let pendingGoogle: string | null = null
+    try {
+      pendingGoogle =
+        sessionStorage.getItem('google_login_intent') || localStorage.getItem('google_login_intent')
+    } catch {
+      pendingGoogle = null
+    }
+    if (pendingGoogle) return
+
+    // อยู่ที่ขั้นล็อกอิน (step 1) เท่านั้นจึงจะเลื่อน — กันกรณี refresh กลางกระบวนการจอง
+    if (useBookingStore.getState().step !== 1) return
+
+    let cancelled = false
+    const restoreSession = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/wallet/session'), { cache: 'no-store' })
+        if (!res.ok) return
+        const u = (await res.json()) as {
+          id?: string
+          lineDisplayName?: string | null
+          linePictureUrl?: string | null
+          name?: string | null
+        } | null
+        if (cancelled || !u || typeof u.id !== 'string') return
+        setLineUser({
+          id: u.id,
+          lineUserId: '',
+          lineDisplayName: u.lineDisplayName ?? null,
+          linePictureUrl: u.linePictureUrl ?? null,
+          name: u.name ?? null,
+          phone: null,
+          email: null,
+        })
+        setStep(2)
+      } catch {
+        // ไม่มีเซสชัน / เน็ตมีปัญหา — คงอยู่ที่หน้าล็อกอินตามเดิม
+      }
+    }
+    void restoreSession()
+    return () => { cancelled = true }
+  }, [setLineUser, setStep])
+
+  // อัปเดต URL ตาม step (?step=2..5) ทุกครั้งที่เปลี่ยนขั้น — refresh/แชร์ลิงก์แล้วอยู่ step เดิม
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const currentStep = useBookingStore.getState().step
+    const url = new URL(window.location.href)
+    const next = currentStep >= 2 && currentStep <= 4 ? String(currentStep) : null
+    if (url.searchParams.get('step') === next) return
+    if (next) url.searchParams.set('step', next)
+    else url.searchParams.delete('step')
+    window.history.replaceState({}, '', url.toString())
+  }, [step])
+
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -219,7 +334,6 @@ export default function BookingPage() {
           {step === 2 && <StepGrid />}
           {step === 3 && <StepSummary />}
           {step === 4 && <StepConfirm />}
-          {step === 5 && <StepSuccess />}
         </div>
       </main>
 

@@ -17,14 +17,12 @@ import { getSlotPrice, type PriceRule } from '@/lib/price'
 import { isSlotPassed } from '@/lib/slot-time'
 import { generatePromptPayQR } from '@/components/qrcode'
 import { COACH_ADVANCE_DAYS, COACH_PACKAGES, COACH_SLOT_TIMES } from './coaches'
+import { MAX_SLIP_SIZE } from '@/components/dashboard/slip-helpers'
 
 /** ชื่อวันแบบสั้น — ใช้บนจอแคบ (แถบวัน 7 คอลัมน์) */
 const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
 const STEPS = ['แพ็กเกจโค้ช', 'วันและเวลา', 'สรุปและชำระเงิน', 'จองสำเร็จ']
-
-/** ขนาดสลิปสูงสุด — เท่ากับ /api/coach-bookings และหน้าจองสนาม */
-const MAX_SLIP_SIZE = 300 * 1024
 
 /** สนามจริงจาก /api/courts */
 interface CourtOption {

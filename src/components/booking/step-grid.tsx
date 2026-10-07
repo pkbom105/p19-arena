@@ -14,14 +14,7 @@ import { getSlotPrice, type PriceRule } from '@/lib/price'
 import { isSlotPassed, isSlotStarted } from '@/lib/slot-time'
 import { useBookingStore, type Court, type TimeSlot } from '@/store/booking-store'
 import { COACH_PACKAGES } from '@/components/activity/coaches'
-
-const THAI_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
-/** ชื่อวันแบบสั้น — ใช้บนจอแค่ (แถบวันที่เป็น 7 คอลัมน์) */
-const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-const THAI_MONTHS_SHORT = [
-  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
-]
+import { THAI_DAYS, THAI_DAYS_NARROW as THAI_DAYS_SHORT, THAI_MONTHS as THAI_MONTHS_SHORT } from '@/lib/thai-date'
 
 /** เปิดจองล่วงหน้าได้ไม่เกิน 42 วัน */
 const MAX_ADVANCE_DAYS = 42

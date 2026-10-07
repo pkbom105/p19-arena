@@ -62,6 +62,10 @@ export interface LineMember {
   lineUserId: string | null
   lineDisplayName: string | null
   linePictureUrl: string | null
+  /** ช่องทาง Google login (ถ้าผูกไว้) — ใช้แสดงป้ายช่องทางในกระเป๋า */
+  googleId?: string | null
+  googleName?: string | null
+  googlePictureUrl?: string | null
   name: string | null
   phone: string | null
   email: string | null

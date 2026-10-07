@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, MessageCircle, Save, User, Users } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, MessageCircle, Save, User, Users, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -23,12 +24,17 @@ const GENDER_OPTIONS = [
   { value: 'unspecified', label: 'ไม่ระบุ' },
 ]
 
+/** จัดรูปแบบจำนวนเงิน (บาท) — ใช้แสดงยอดคงเหลือในกระเป๋า */
+const formatBaht = (value: number) =>
+  new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(value)
+
 interface AccountSectionProps {
   settings: Settings
   setSettings: Dispatch<SetStateAction<Settings>>
   saving: boolean
   handleSaveAccount: () => void
   lineConnected: boolean
+  googleConfigured: boolean
   oaBasicId: string
   msgStatus: MessagingStatus | null
   lineMembers: LineMember[]
@@ -45,7 +51,7 @@ function ProfileField({ label, value, field }: { label: string; value: string; f
 }
 
 /** Account (User) — ซ้าย 50%: ฟอร์ม Input profile · ขวา 50%: View Profile (รวม Line credential profile) */
-export function AccountSection({ settings, setSettings, saving, handleSaveAccount, lineConnected, oaBasicId, msgStatus, lineMembers }: AccountSectionProps) {
+export function AccountSection({ settings, setSettings, saving, handleSaveAccount, lineConnected, googleConfigured, oaBasicId, msgStatus, lineMembers }: AccountSectionProps) {
   const field = (key: string) => settings[key] ?? ''
   const setField = (key: string, value: string) => setSettings((prev) => ({ ...prev, [key]: value }))
   const v = (s?: string) => (s && s.trim() ? s : '—')
@@ -215,6 +221,51 @@ export function AccountSection({ settings, setSettings, saving, handleSaveAccoun
           </dl>
 
           <Separator />
+
+          {/* ช่องทางเข้าสู่ระบบ — สถานะการเปิดใช้ Google / LINE (ระดับการตั้งค่า) */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">ช่องทางเข้าสู่ระบบ (Login methods)</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant="outline"
+                data-field="login-google"
+                className={googleConfigured
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 text-xs'
+                  : 'bg-muted text-muted-foreground text-xs'}
+              >
+                {googleConfigured ? '● Google: Configured' : '○ Google: Not configured'}
+              </Badge>
+              <Badge
+                variant="outline"
+                data-field="login-line"
+                className={lineConnected
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 text-xs'
+                  : 'bg-muted text-muted-foreground text-xs'}
+              >
+                {lineConnected ? '● LINE: Connected' : '○ LINE: Not configured'}
+              </Badge>
+            </div>
+          </div>
+
+          {/* กระเป๋าเงิน — ผูกกับบัญชีนี้ + ทางไปหน้าติมเงิน (Top up) */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-emerald-600" />
+              กระเป๋าเงิน (Wallet)
+            </p>
+            <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+              <span className="text-sm text-emerald-800">ยอดเงินคงเหลือ</span>
+              <span data-field="wallet-balance" className="font-semibold text-emerald-900">
+                {latestLine ? formatBaht(latestLine.walletBalance ?? 0) : '—'}
+              </span>
+            </div>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/dashboard/1/topup">
+                <Wallet className="h-4 w-4" />
+                ไปหน้าติมเงิน / จัดการกระเป๋า
+              </Link>
+            </Button>
+          </div>
 
           {/* Line credential profile — ข้อมูลเชื่อมต่อ LINE ของร้าน + โปรไฟล์ LINE ล่าสุด */}
           <div className="space-y-2">

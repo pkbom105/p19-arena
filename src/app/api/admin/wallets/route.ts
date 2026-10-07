@@ -4,13 +4,16 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     const users = await db.user.findMany({
-      where: { lineUserId: { not: null } },
+      where: { OR: [{ lineUserId: { not: null } }, { googleId: { not: null } }] },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         lineUserId: true,
         lineDisplayName: true,
         linePictureUrl: true,
+        googleId: true,
+        googleName: true,
+        googlePictureUrl: true,
         name: true,
         phone: true,
         email: true,

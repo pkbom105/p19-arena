@@ -9,10 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiUrl, BASE_PATH, lineRedirectUri } from '@/lib/api'
 import { generatePromptPayQR } from '@/components/qrcode'
 import { signIn, getSession } from 'next-auth/react'
+import { MAX_SLIP_SIZE } from '@/components/dashboard/slip-helpers'
 
 const LINE_CHANNEL_ID = process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || 'YOUR_CHANNEL_ID'
 const TOPUP_AMOUNTS = [100, 500, 1000, 2000] as const
-const MAX_SLIP_SIZE = 300 * 1024
 
 interface WalletProfile {
   id: string

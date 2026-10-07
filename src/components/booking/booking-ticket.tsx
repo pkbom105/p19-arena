@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, type RefObject } from 'react'
-import { Dumbbell, CalendarDays, MapPin, Clock, GraduationCap, User, QrCode, Pencil, Ban, Eye, Download, Loader2, Link2 } from 'lucide-react'
+import { Dumbbell, CalendarDays, MapPin, Clock, GraduationCap, User, QrCode, Pencil, Ban, Eye, Download, Loader2, Link2, ExternalLink } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -10,6 +10,7 @@ import { generateBookingQR } from '@/components/qrcode'
 import { toPng } from 'html-to-image'
 import type { TicketCoachInfo } from '@/lib/coach-ticket'
 import { formatCoachTimes, formatSlotHours, toMinutes } from '@/lib/ticket-group'
+import { formatThaiDate as formatDate } from '@/lib/thai-date'
 
 /** ข้อมูลการจองขั้นต่ำสำหรับแสดงเป็น ticket (อิงตามการ์ดอ้างอิง public/ref/ticket.png) */
 export interface TicketBooking {
@@ -25,18 +26,6 @@ export interface TicketBooking {
   slotCount?: number
   /** โค้ชที่จองพร้อมสนาม (ถ้ามี) — แสดงชื่อ + จำนวนชั่วโมงบนตั๋ว */
   coach?: TicketCoachInfo | null
-}
-
-const THAI_MONTHS = [
-  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
-]
-const THAI_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00')
-  if (isNaN(d.getTime())) return dateStr
-  return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`
 }
 
 /**
@@ -77,12 +66,15 @@ export function BookingTicket({
   onEdit,
   onCancel,
   onCopyLink,
+  ticketHref,
   hideActions = false,
 }: {
   booking: TicketBooking
   onEdit?: () => void
   onCancel?: () => void
   onCopyLink?: () => void
+  /** ลิงก์ไปหน้าตั๋วออนไลน์ (/ticket/...) — ถ้าใส่ จะแสดงปุ่มเปิดหน้าตั๋วข้างปุ่มดาวน์โหลด */
+  ticketHref?: string
   hideActions?: boolean
 }) {
   const [qr, setQr] = useState<string | null>(null)
@@ -251,6 +243,13 @@ export function BookingTicket({
               <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setViewOpen(true)} aria-label="ดูตั๋ว">
                 <Eye className="h-3.5 w-3.5" />
               </Button>
+              {ticketHref && (
+                <Button asChild size="icon" variant="outline" className="h-7 w-7">
+                  <a href={ticketHref} target="_blank" rel="noopener noreferrer" aria-label="เปิดหน้าตั๋วออนไลน์">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              )}
               <Button size="icon" className="h-7 w-7 bg-emerald-600 hover:bg-emerald-700" onClick={handleDownload} disabled={downloading} aria-label="ดาวน์โหลด">
                 {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
               </Button>

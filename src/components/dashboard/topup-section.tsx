@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RecentBookingsTable } from './recent-bookings-table'
 import { RecentTopupsTable, type RecentTopUpRow } from './recent-topups-table'
 import { TopupCardsPanel } from './topup-cards-panel'
+import type { SlipVerifyPayload } from '@/components/slip2go-qr'
 import type { LineMember } from './types'
 import type { BookingRow } from '@/components/pos/types'
 
@@ -149,6 +150,7 @@ export function TopupSection() {
     amount: number
     slipName: string
     slipDataUrl: string
+    verify: SlipVerifyPayload | null
   }): Promise<{ ok: boolean; error?: string }> => {
     setError(null)
     try {
@@ -372,20 +374,25 @@ export function TopupSection() {
             <h2 className="font-semibold">Customer wallets</h2>
             {members.length === 0 ? (
         <p className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-          No LINE-registered customers yet.
+          No customers yet.
         </p>
             ) : (
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {members.map((member) => {
-                  const displayName = member.lineDisplayName || member.name || 'LINE member'
+                  const displayName = member.lineDisplayName || member.googleName || member.name || 'Customer'
+                  const avatar = member.linePictureUrl || member.googlePictureUrl || null
+                  const channels = [
+                    member.lineUserId ? 'LINE' : null,
+                    member.googleId ? 'Google' : null,
+                  ].filter((c): c is string => Boolean(c))
 
                   return (
                     <Card key={member.id}>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                         <CardTitle className="flex min-w-0 items-center gap-3 text-base">
-                          {member.linePictureUrl ? (
+                          {avatar ? (
                             <img
-                              src={member.linePictureUrl}
+                              src={avatar}
                               alt=""
                               className="h-11 w-11 shrink-0 rounded-full object-cover"
                             />
@@ -396,6 +403,20 @@ export function TopupSection() {
                           )}
                           <span className="truncate">{displayName}</span>
                         </CardTitle>
+                        {channels.length > 0 && (
+                          <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                            {channels.map((channel) => (
+                              <span
+                                key={channel}
+                                className={channel === 'LINE'
+                                  ? 'rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] text-green-700'
+                                  : 'rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600'}
+                              >
+                                {channel}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
