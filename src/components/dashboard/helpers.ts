@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  CalendarDays, MapPin, MessageCircle, PartyPopper, Receipt, Trophy, User, Wallet,
+  CalendarDays, IdCard, MapPin, MessageCircle, PartyPopper, Receipt, Trophy, User, Wallet,
 } from 'lucide-react'
 
 export const DAY_OPTIONS = [
@@ -48,4 +48,5 @@ export type SectionId = (typeof SECTIONS)[number]['id']
 export const ACCOUNT_NAV = [
   { id: 'account', label: 'User', icon: User, href: '/dashboard/1/account' },
   { id: 'topup', label: 'Top up', icon: Wallet, href: '/dashboard/1/topup' },
+  { id: 'profile', label: 'Profile', icon: IdCard, href: '/dashboard/1/profile' },
 ] as const

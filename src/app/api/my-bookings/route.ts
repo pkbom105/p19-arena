@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Booking } from '@prisma/client'
 import { attachCoachToBookings } from '@/lib/coach-ticket'
+import { getCustomerSession } from '@/lib/session-auth'
 
 /** ขนาดสลิปสูงสุด — ตรงกับฝั่ง UI (step-confirm / slip-upload-card) */
 const MAX_SLIP_BYTES = 300 * 1024
@@ -22,13 +23,6 @@ export async function GET(request: NextRequest) {
     const playerPhone = searchParams.get('playerPhone')
     const ticketCode = searchParams.get('ticketCode')
 
-    if (!lineUserId && !playerPhone && !ticketCode) {
-      return NextResponse.json(
-        { error: 'กรุณาระบุ lineUserId, playerPhone หรือ ticketCode' },
-        { status: 400 }
-      )
-    }
-
     const where: Record<string, unknown> = {}
     if (lineUserId) {
       const user = await db.user.findUnique({ where: { lineUserId } })
@@ -44,6 +38,17 @@ export async function GET(request: NextRequest) {
     if (ticketCode) {
       // รหัสตั๋วเก็บเป็นตัวพิมพ์ใหญ่เสมอ — แปลงให้ค้นได้ทั้งพิมพ์เล็ก/พิมพ์ใหญ่
       where.ticketCode = ticketCode.trim().toUpperCase()
+    }
+    if (!lineUserId && !playerPhone && !ticketCode) {
+      // ไม่ส่งพารามิเตอร์มา → คืนตั๋วของเจ้าของเซสชันที่ล็อกอินอยู่ (ใช้กับหน้าโปรไฟล์สมาชิก)
+      const session = getCustomerSession(request)
+      if (!session) {
+        return NextResponse.json(
+          { error: 'กรุณาระบุ lineUserId, playerPhone, ticketCode หรือเข้าสู่ระบบ' },
+          { status: 400 }
+        )
+      }
+      where.userId = session.subject
     }
 
     const bookings = await db.booking.findMany({

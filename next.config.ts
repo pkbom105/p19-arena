@@ -42,6 +42,16 @@ const nextConfig: NextConfig = {
         destination: "/dashboard/shop/shop-report",
         permanent: false,
       },
+      // หน้า /activity ย้ายเป็นพื้นที่สมาชิก /member (sub menu: Profile / กิจกรรม / โค้ช) — ลิงก์/QR เก่าไม่พัง
+      { source: "/activity", destination: "/member", permanent: false },
+      { source: "/activity/coach", destination: "/member/coach", permanent: false },
+      { source: "/activity/activities", destination: "/member/activities", permanent: false },
+      {
+        source: "/activity/activities/party-match",
+        destination: "/member/activities/party-match",
+        permanent: false,
+      },
+      { source: "/activity/member", destination: "/member", permanent: false },
     ];
   },
   reactStrictMode: false,

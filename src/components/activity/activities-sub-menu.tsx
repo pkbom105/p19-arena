@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation'
 import { PartyPopper } from 'lucide-react'
 
 /**
- * เมนูย่อยของหน้า /activity/activities — แถบปุ่มอยู่ใต้ ActivityGroupMenu
+ * เมนูย่อยของหน้า /member/activities — แถบปุ่มอยู่ใต้ ActivityGroupMenu
  * แต่ละรายการมี URL ของตัวเอง และเนื้อหาอยู่ในไฟล์ของแต่ละ sub-menu
  */
-const SUB_MENUS = [{ href: '/activity/activities/party-match', label: 'Party Match', icon: PartyPopper }] as const
+const SUB_MENUS = [{ href: '/member/activities/party-match', label: 'Party Match', icon: PartyPopper }] as const
 
 export function ActivitiesSubMenu() {
   const pathname = usePathname()

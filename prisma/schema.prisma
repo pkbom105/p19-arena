@@ -55,6 +55,8 @@ model User {
   email           String?
   emailVerifiedAt DateTime?
   walletBalance   Int       @default(0)
+  /** รหัสกระเป๋า (Wallet ID) สำหรับสมาชิกระดับ A — ออกอัตโนมัติเมื่อผูก LINE + Google ครบ */
+  walletCode      String?   @unique
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   bookings       Booking[]

@@ -14,6 +14,19 @@ import { StepConfirm } from '@/components/booking/step-confirm'
 import { useBookingStore } from '@/store/booking-store'
 import type { BookingItem, RentalItem } from '@/store/booking-store'
 
+/**
+ * หน้าที่เริ่มล็อกอิน LINE ไว้เอง (กระเป๋าเงินลูกค้า / พื้นที่สมาชิก) — หลังแลก code แล้วต้องพากลับไปหน้านั้น
+ * ค่า return_to ถูกเก็บไว้ทั้ง sessionStorage + localStorage (ดู customer-topup-section / member-login-gate)
+ */
+const LINE_RETURN_TARGETS = [
+  `${BASE_PATH}/account/topup`,
+  `${BASE_PATH}/member`,
+  `${BASE_PATH}/member/profile`,
+  `${BASE_PATH}/member/profile/user`,
+]
+const isLineReturnTarget = (value: string | null): value is string =>
+  typeof value === 'string' && LINE_RETURN_TARGETS.includes(value)
+
 export default function BookingPage() {
   const { step, setLineUser, setStep, setIsLoading, setRentalSelections } = useBookingStore()
   const [mounted, setMounted] = useState(false)
@@ -31,7 +44,8 @@ export default function BookingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code,
-          purpose: loginIntent === 'topup' ? 'topup' : 'booking',
+          // 'link' = ผูก LINE เข้ากับโปรไฟล์ที่ล็อกอินอยู่ (ไม่สลับเซสชัน) · 'topup'/'booking' = ล็อกอินเดิม
+          purpose: loginIntent === 'topup' || loginIntent === 'link' ? loginIntent : 'booking',
           // ต้องตรงกับ Callback URL ที่ลงทะเบียนใน LINE console เป๊ะ และเหมือนกันทุกเครื่อง
           redirectUri: lineRedirectUri(),
         }),
@@ -41,10 +55,7 @@ export default function BookingPage() {
 
       if (res.ok && user && user.id) {
         setLineUser(user)
-        if (
-          loginIntent === 'topup' &&
-          returnTo === `${BASE_PATH}/account/topup`
-        ) {
+        if (isLineReturnTarget(returnTo)) {
           sessionStorage.removeItem('line_login_return_to')
           sessionStorage.removeItem('line_login_state')
           sessionStorage.removeItem('line_login_intent')
@@ -59,13 +70,17 @@ export default function BookingPage() {
           return
         }
       } else {
+        const linkError = user?.error || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณากดเข้าสู่ระบบอีกครั้ง'
         console.error('LINE auth error:', user?.error || res.status)
         // code ใช้ซ้ำ/หมดอายุ (กด refresh ตอนหน้า callback) = invalid_grant — ให้ลอง login ใหม่
-        toast.error(user?.error || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณากดเข้าสู่ระบบอีกครั้ง')
-        if (
-          loginIntent === 'topup' &&
-          returnTo === `${BASE_PATH}/account/topup`
-        ) {
+        toast.error(linkError)
+        if (isLineReturnTarget(returnTo)) {
+          // เก็บข้อความไว้ให้หน้าโปรไฟล์สมาชิกแสดง (กรณีผูก LINE ไม่สำเร็จ เช่น ช่องทางถูกใช้กับโปรไฟล์อื่น)
+          try {
+            sessionStorage.setItem('p19_link_error', String(linkError))
+          } catch {
+            // ignore
+          }
           sessionStorage.removeItem('line_login_return_to')
           sessionStorage.removeItem('line_login_state')
           sessionStorage.removeItem('line_login_intent')
@@ -174,7 +189,7 @@ export default function BookingPage() {
       const returnTo =
         sessionStorage.getItem('line_login_return_to') || localStorage.getItem('line_login_return_to')
       window.history.replaceState({}, '', `${BASE_PATH}/`)
-      if (returnTo === `${BASE_PATH}/account/topup`) {
+      if (isLineReturnTarget(returnTo)) {
         sessionStorage.removeItem('line_login_return_to')
         sessionStorage.removeItem('line_login_state')
         sessionStorage.removeItem('line_login_intent')
@@ -323,7 +338,7 @@ export default function BookingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-background">
       {/* Header + Menu */}
-      <SiteHeader showSettings={false} />
+      <SiteHeader />
 
       {/* Main content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4">

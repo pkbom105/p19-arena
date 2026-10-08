@@ -5,23 +5,8 @@ import { CheckCircle2, Loader2, QrCode, ScanText, UploadCloud, Wallet, X } from 
 import { Button } from '@/components/ui/button'
 import { generatePromptPayQR } from '@/components/qrcode'
 import { useSlip2GoVerify, Slip2GoStatus, toSlipVerifyPayload, type SlipVerifyOutcome, type SlipVerifyPayload } from '@/components/slip2go-qr'
+import { CASH_CARDS } from '@/lib/cash-cards'
 import { MAX_SLIP_SIZE } from './slip-helpers'
-
-interface CashCard {
-  id: string
-  name: string
-  /** ยอดที่ลูกค้าจ่าย */
-  pay: number
-  /** ยอดที่ได้เข้ากระเป๋า */
-  get: number
-}
-
-/** บัตรเติมเงิน (Cash Card) — จ่ายเท่านี้ ได้ยอดกระเป๋าเท่านี้ */
-const CASH_CARDS: CashCard[] = [
-  { id: 'card-a', name: 'Cash Card A', pay: 950, get: 1000 },
-  { id: 'card-b', name: 'Cash Card B', pay: 1500, get: 1600 },
-  { id: 'card-c', name: 'Cash Card C', pay: 1800, get: 2000 },
-]
 
 const formatBaht = (value: number) =>
   new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(value)
@@ -47,7 +32,7 @@ interface TopupCustomer {
 }
 
 interface TopupCardsPanelProps {
-  /** ลูกค้า LINE ที่ผูกกระเป๋าเงิน (userId ใน DB) — ใช้เลือกว่าเงินจะเข้าคนไหน */
+  /** ลูกค้า LINE ที่ผูกกระเป๋าเงิน (userId ใน DB) — ใช้เลือกว่าเงินจะเข้าคนไหน (โหมดเจ้าหน้าที่) */
   members?: TopupCustomer[]
   /**
    * เรียกหลังยืนยันสลิป — ส่งยอด + userId ของลูกค้าที่ผูก ไปบันทึกใน "รายการ Top-up ล่าสุด"
@@ -55,12 +40,21 @@ interface TopupCardsPanelProps {
    */
   onConfirmed?: (info: {
     userId: string
+    /** การ์ดที่เลือก — ฝั่งเซิร์ฟเวอร์ใช้คิดยอดเครดิตเอง (ห้ามเชื่อยอดจาก client) */
+    cardId: string
     amount: number
     slipName: string
     slipDataUrl: string
     /** ผลตรวจสลิป (Slip2Go) — ไว้บันทึกใน DB */
     verify: SlipVerifyPayload | null
   }) => Promise<{ ok: boolean; error?: string }>
+  /**
+   * โหมดการใช้งาน: 'staff' (ค่าเริ่มต้น — หน้า /dashboard/1/topup เลือกลูกค้าได้)
+   * หรือ 'member' (หน้า /member/profile/wallet — ใช้สมาชิกที่ล็อกอินอยู่ ไม่มีตัวเลือกลูกค้า)
+   */
+  mode?: 'staff' | 'member'
+  /** userId ของสมาชิกที่ล็อกอินอยู่ (ใช้ตอน mode = 'member') */
+  selfUserId?: string
 }
 
 /**
@@ -69,7 +63,7 @@ interface TopupCardsPanelProps {
  * และช่อง "UPLOAD FILE" — เลือกสลิปแล้ว OCR อ่านยอดเงินในเครื่อง (tesseract.js, ไม่ใช้ AI token)
  */
 
-export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) {
+export function TopupCardsPanel({ members, onConfirmed, mode = 'staff', selfUserId }: TopupCardsPanelProps) {
   const [selectedId, setSelectedId] = useState(CASH_CARDS[0].id)
   /** ลูกค้า (userId ใน DB) ที่จะผูกสลิปด้วย — เงินจะเข้าถูกระเป๋าคนนี้หลังอนุมัติ */
   const [customerId, setCustomerId] = useState('')
@@ -94,6 +88,13 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [qrAmount, setQrAmount] = useState<number | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
+
+  /**
+   * โหมดสมาชิก (หน้า /member/profile/wallet) = ใช้ "ตัวเอง" อัตโนมัติ ไม่ต้องเลือก
+   * โหมดเจ้าหน้าที่ (หน้า /dashboard/1/topup) = เลือกลูกค้าจาก dropdown (พฤติกรรมเดิม)
+   */
+  const isMemberMode = mode === 'member'
+  const effectiveCustomerId = isMemberMode ? (selfUserId ?? '') : customerId
 
   const selected = CASH_CARDS.find((card) => card.id === selectedId) ?? CASH_CARDS[0]
 
@@ -185,15 +186,20 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
   /** ยืนยันสลิป — ใช้ยอดที่ OCR อ่านได้ (ถ้าอ่านไม่ได้ใช้ยอดที่ได้เข้ากระเป๋า) แล้วแจ้งหน้าหลักไปเพิ่มใน "รายการ Top-up ล่าสุด" */
   const confirmSlip = async () => {
     if (!slipDataUrl) return
-    if (!customerId) {
-      setSlipError('เลือกลูกค้าที่จะผูกสลิปก่อนกดยืนยัน')
+    if (!effectiveCustomerId) {
+      setSlipError(
+        isMemberMode
+          ? 'ไม่พบเซสชันสมาชิก กรุณารีเฟรชหน้าแล้วลองใหม่'
+          : 'เลือกลูกค้าที่จะผูกสลิปก่อนกดยืนยัน'
+      )
       return
     }
     const amount = ocrAmount ?? selected.get
     setSlipError(null)
     setSlipSaving(true)
     const result = await onConfirmed?.({
-      userId: customerId,
+      userId: effectiveCustomerId,
+      cardId: selected.id,
       amount,
       slipName: slipName ?? 'payment-slip',
       slipDataUrl,
@@ -275,29 +281,35 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
       {/* Upload Slip — ช่องอัปโหลดไฟล์สลิป (UPLOAD FILE) ผูกกับยอด Top-up ของ Cash Card ที่เลือก */}
       <h2 className="font-semibold">Upload Slip</h2>
       <div className="rounded-xl border bg-white p-3">
-        {/* ผูกลูกค้า (userId ใน DB) — สลิปจะถูกบันทึกเข้ากระเป๋าของลูกค้าคนนี้หลังกดอนุมัติ */}
-        <div className="mb-3 space-y-1">
-          <label htmlFor="slip-customer" className="text-xs font-medium text-muted-foreground">
-            ผูกลูกค้า (LINE User ID)
-          </label>
-          <select
-            id="slip-customer"
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className="h-9 w-full rounded-lg border bg-white px-2 text-sm outline-none focus:border-emerald-500"
-          >
-            <option value="">— เลือกลูกค้า —</option>
-            {(members ?? []).map((member) => (
-              <option key={member.id} value={member.id}>
-                {(member.lineDisplayName || member.name || 'LINE member') +
-                  (member.lineUserId ? ` · ${member.lineUserId}` : '')}
-              </option>
-            ))}
-          </select>
-          {!(members ?? []).length && (
-            <p className="text-[11px] text-muted-foreground">ยังไม่มีลูกค้า LINE — ให้ลูกค้าล็อกอิน LINE ก่อน</p>
-          )}
-        </div>
+        {/* โหมดเจ้าหน้าที่: ผูกลูกค้า (userId ใน DB) — สลิปจะถูกบันทึกเข้ากระเป๋าของลูกค้าคนนี้หลังกดอนุมัติ */}
+        {isMemberMode ? (
+          <p className="mb-3 text-xs text-muted-foreground">
+            สลิปนี้จะถูกบันทึกเข้ากระเป๋าของคุณ (สมาชิกที่ล็อกอินอยู่)
+          </p>
+        ) : (
+          <div className="mb-3 space-y-1">
+            <label htmlFor="slip-customer" className="text-xs font-medium text-muted-foreground">
+              ผูกลูกค้า (LINE User ID)
+            </label>
+            <select
+              id="slip-customer"
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              className="h-9 w-full rounded-lg border bg-white px-2 text-sm outline-none focus:border-emerald-500"
+            >
+              <option value="">— เลือกลูกค้า —</option>
+              {(members ?? []).map((member) => (
+                <option key={member.id} value={member.id}>
+                  {(member.lineDisplayName || member.name || 'LINE member') +
+                    (member.lineUserId ? ` · ${member.lineUserId}` : '')}
+                </option>
+              ))}
+            </select>
+            {!(members ?? []).length && (
+              <p className="text-[11px] text-muted-foreground">ยังไม่มีลูกค้า LINE — ให้ลูกค้าล็อกอิน LINE ก่อน</p>
+            )}
+          </div>
+        )}
 
         {slipConfirmed !== null ? (
           <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
@@ -371,16 +383,16 @@ export function TopupCardsPanel({ members, onConfirmed }: TopupCardsPanelProps) 
           <button
             type="button"
             onClick={() => slipInputRef.current?.click()}
-            disabled={!customerId}
+            disabled={!effectiveCustomerId}
             className={
               'flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-emerald-300 p-5 transition-colors ' +
-              (customerId ? 'cursor-pointer hover:bg-emerald-50/50' : 'cursor-not-allowed opacity-60')
+              (effectiveCustomerId ? 'cursor-pointer hover:bg-emerald-50/50' : 'cursor-not-allowed opacity-60')
             }
           >
             <UploadCloud className="h-7 w-7 text-emerald-500" />
             <span className="text-sm font-semibold tracking-wide text-emerald-700">UPLOAD FILE</span>
             <span className="text-[11px] text-muted-foreground">
-              {customerId ? 'jpg / png — ไม่เกิน 300kB' : 'เลือกลูกค้าก่อนอัปโหลดสลิป'}
+              {effectiveCustomerId ? 'jpg / png — ไม่เกิน 300kB' : 'เลือกลูกค้าก่อนอัปโหลดสลิป'}
             </span>
           </button>
         )}

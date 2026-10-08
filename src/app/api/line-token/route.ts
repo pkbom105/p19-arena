@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { CUSTOMER_SESSION_COOKIE, setSessionCookie } from '@/lib/session-auth'
+import { CUSTOMER_SESSION_COOKIE, getCustomerSession, setSessionCookie } from '@/lib/session-auth'
 
 const LINE_TOKEN_URL = 'https://api.line.me/oauth2/v2.1/token'
 const LINE_VERIFY_URL = 'https://api.line.me/oauth2/v2.1/verify'
@@ -86,6 +86,48 @@ export async function POST(request: NextRequest) {
 
     if (!lineUserId) {
       return NextResponse.json({ error: 'Invalid LINE id_token' }, { status: 401 })
+    }
+
+    // โหมดผูกบัญชี (purpose: 'link') — ผู้ใช้ที่ล็อกอินอยู่กดปุ่ม "เชื่อม LINE" ในหน้าโปรไฟล์สมาชิก
+    // ต้องผูก lineUserId เข้ากับ "แถวเดิม" และ **ไม่สลับเซสชัน** (พฤติกรรมเดิม = สลับเซสชัน ใช้เฉพาะล็อกอินปกติ)
+    if (body.purpose === 'link') {
+      const customer = getCustomerSession(request)
+      if (customer) {
+        const current = await db.user.findUnique({
+          where: { id: customer.subject },
+          select: { id: true, lineUserId: true },
+        })
+
+        if (current) {
+          if (current.lineUserId && current.lineUserId !== lineUserId) {
+            return NextResponse.json(
+              { error: 'โปรไฟล์นี้ผูกบัญชี LINE อื่นไว้แล้ว กรุณาติดต่อเจ้าหน้าที่' },
+              { status: 409 }
+            )
+          }
+
+          if (!current.lineUserId) {
+            const owner = await db.user.findUnique({ where: { lineUserId }, select: { id: true } })
+            if (owner && owner.id !== current.id) {
+              return NextResponse.json(
+                { error: 'บัญชี LINE นี้ผูกกับโปรไฟล์อื่นอยู่แล้ว กรุณาติดต่อเจ้าหน้าที่' },
+                { status: 409 }
+              )
+            }
+          }
+
+          const linked = await db.user.update({
+            where: { id: current.id },
+            data: {
+              lineUserId,
+              lineDisplayName: claims.name || null,
+              linePictureUrl: claims.picture || null,
+            },
+          })
+          // ไม่แตะคุกกี้เซสชัน — คืนโปรไฟล์เดิม (ที่ผูก LINE แล้ว) ให้หน้าโปรไฟล์โหลดใหม่
+          return NextResponse.json(linked)
+        }
+      }
     }
 
     // Upsert user ด้วย LINE User ID จริง (record เดิม = ข้อมูลเก่า = auto-fill ได้)

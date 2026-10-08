@@ -1,10 +1,10 @@
-import { GraduationCap, Trophy, Users } from 'lucide-react'
+import { GraduationCap, IdCard, Trophy } from 'lucide-react'
 
-/** 3 กลุ่มเมนูในหน้ากิจกรรม — ใช้ร่วมเฉพาะหน้าใต้ /activity (ไฟล์ข้อมูล: import ได้ทั้ง server/client) */
+/** 3 กลุ่มเมนูย่อยของพื้นที่สมาชิก (/member) — ใช้ร่วมทุกหน้าใต้ /member (ไฟล์ข้อมูล: import ได้ทั้ง server/client) */
 export const ACTIVITY_GROUPS = [
-  { href: '/activity/coach', label: 'โค้ช', desc: 'ตารางสอนและโปรไฟล์โค้ช', icon: GraduationCap },
-  { href: '/activity/member', label: 'สมาชิก', desc: 'สมัครสมาชิกและสิทธิประโยชน์', icon: Users },
-  { href: '/activity/activities', label: 'กิจกรรม', desc: 'ทัวร์นาเมนต์และโปรโมชั่น', icon: Trophy },
+  { href: '/member/profile', label: 'Profile', desc: 'โปรไฟล์ที่เข้าสู่ระบบและกระเป๋าเงิน', icon: IdCard },
+  { href: '/member/activities', label: 'กิจกรรม', desc: 'ทัวร์นาเมนต์และโปรโมชั่น', icon: Trophy },
+  { href: '/member/coach', label: 'โค้ช', desc: 'ตารางสอนและโปรไฟล์โค้ช', icon: GraduationCap },
 ] as const
 
 export type ActivityGroup = (typeof ACTIVITY_GROUPS)[number]
