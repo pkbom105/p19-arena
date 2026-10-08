@@ -67,3 +67,9 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Work docs (local only — ไม่ขึ้น git)
+/case-e.md
+/deploy-booking.md
+/DEPLOY.md
+/DEPLOY2.md
