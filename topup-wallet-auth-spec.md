@@ -3,7 +3,7 @@
 > **สถานะ:** เอกสารวางแผน (ยังไม่เริ่มแก้โค้ด) · **เวอร์ชัน:** 1.0
 > **เจ้าของงาน:** ทีม P19 Arena · **เป้าหมาย:** ให้กระเป๋าเงิน/Top-up ใช้งานได้บน production โดย**ไม่บังคับ** ล็อกอิน LINE
 > **ผู้ให้บริการตัวตนที่เลือก:** Google + เบอร์โทร (OTP) เป็นช่องทางหลัก · **LINE = ตัวเลือกผูกเพิ่มได้** (เพื่อรับตั๋ว/แจ้งเตือน)
-> **Production จริง (ตาม DEPLOY.md):** VPS + SQLite · `https://p19arena.p19avenue.com/` (subdomain, พาธราก `/`)
+> **Production จริง (ตาม DEPLOY.md):** VPS + SQLite · `https://booking.p19avenue.com/` (subdomain, พาธราก `/`)
 
 ---
 
@@ -210,7 +210,7 @@
 ### 9.2 Checklist ก่อนเริ่ม (ทำทีละข้อ ติ๊กได้)
 - [ ] ตกลงผู้ให้บริการ SMS + ได้ API key + ชื่อผู้ส่งที่อนุมัติแล้ว
 - [ ] สร้าง Google OAuth Client (Web) + consent screen + ใส่ redirect URI ครบทุก env
-- [ ] ยืนยันโดเมน production จริง (จาก DEPLOY.md: `https://p19arena.p19avenue.com/` — **subdomain พาธราก `/`**) → callback = `https://p19arena.p19avenue.com/api/auth/google/callback`
+- [ ] ยืนยันโดเมน production จริง (จาก DEPLOY.md: `https://booking.p19avenue.com/` — **subdomain พาธราก `/`**) → callback = `https://booking.p19avenue.com/api/auth/google/callback`
 - [ ] ยืนยันว่าจะใช้ `NEXT_PUBLIC_BASE_PATH` หรือไม่ (โค้ดรองรับ แต่ production ปัจจุบันใช้ subdomain) — **ถ้าใส่ basePath ต้องเติมใน redirect URI ด้วย**
 - [ ] ตั้ง `AUTH_SECRET` (≥32 ตัวอักษร) บนทุก env — **เครื่อง dev ยังไม่มี**
 - [ ] แก้ `DATABASE_URL` ให้ชี้ DB ถูกต้อง (dev ตอนนี้เป็นพาธสัมพัทธ์ที่ทำให้ API 500)
@@ -361,7 +361,7 @@
 | UI ลูกค้า/แอดมิน | `src/components/wallet/customer-topup-section.tsx`, `src/components/dashboard/topup-section.tsx`, `src/app/account/topup/page.tsx` |
 | ตั๋ว/แจ้งเตือน LINE | `src/lib/line-messaging.ts`, `src/app/api/bookings/route.ts` |
 | ตรวจ env | `src/lib/env.ts`, `src/instrumentation.ts` |
-| Deploy | `DEPLOY.md` (VPS + SQLite + PM2/systemd/docker, prod = `https://p19arena.p19avenue.com/`) |
+| Deploy | `DEPLOY.md` (VPS + SQLite + PM2/systemd/docker, prod = `https://booking.p19avenue.com/`) |
 
 ### 15.2 สภาพแวดล้อมที่ยังขาด (บล็อกการทดสอบในเครื่อง)
 1. `AUTH_SECRET` ไม่ได้ตั้ง → เซสชันใช้ไม่ได้
