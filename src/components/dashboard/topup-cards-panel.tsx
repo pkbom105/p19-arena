@@ -183,7 +183,11 @@ export function TopupCardsPanel({ members, onConfirmed, mode = 'staff', selfUser
     if (slipInputRef.current) slipInputRef.current.value = ''
   }
 
-  /** ยืนยันสลิป — ใช้ยอดที่ OCR อ่านได้ (ถ้าอ่านไม่ได้ใช้ยอดที่ได้เข้ากระเป๋า) แล้วแจ้งหน้าหลักไปเพิ่มใน "รายการ Top-up ล่าสุด" */
+  /**
+   * ยืนยันสลิป — **ยอดที่บันทึก/เครดิตต้องเป็น "ยอดที่ได้เข้ากระเป๋า" ของการ์ด (`selected.get`) เสมอ**
+   * ห้ามใช้ยอดที่ OCR อ่านจากสลิป (นั่นคือ "ยอดที่จ่าย" = `pay` เช่น 950 — คนละค่ากับยอดที่เข้าถระเป๋า 1000)
+   * แล้วแจ้งหน้าหลักไปเพิ่มใน "รายการ Top-up ล่าสุด"
+   */
   const confirmSlip = async () => {
     if (!slipDataUrl) return
     if (!effectiveCustomerId) {
@@ -194,7 +198,9 @@ export function TopupCardsPanel({ members, onConfirmed, mode = 'staff', selfUser
       )
       return
     }
-    const amount = ocrAmount ?? selected.get
+    // การ์ดมี 2 ค่า: pay (ยอดที่ลูกค้าจ่าย → ใช้กับ QR + ตรวจสลิป) และ get (ยอดที่ได้เข้ากระเป๋า → ใช้เครดิต)
+    // ยอดที่ OCR อ่านจากสลิป = ยอดที่จ่าย จึงใช้เป็นยอดเครดิตไม่ได้ (การ์ด A: จ่าย 950 แต่กระเป๋าต้องได้ 1000)
+    const amount = selected.get
     setSlipError(null)
     setSlipSaving(true)
     const result = await onConfirmed?.({

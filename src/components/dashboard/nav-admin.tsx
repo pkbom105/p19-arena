@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Dumbbell, ScanBarcode, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
+import { BarChart3, Dumbbell, ScanBarcode, ShoppingCart, Store, Tags } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { useMyLevel } from '@/hooks/use-my-level'
 import { ACCOUNT_NAV, SECTIONS, type SectionId } from './helpers'
 
 interface NavAdminProps {
@@ -16,6 +17,9 @@ interface NavAdminProps {
 /** Side menu (desktop) — Level 1 Admin: แสดงเมนูครบทุกตัว (all menu) */
 export function NavAdmin({ section, onSelect }: NavAdminProps) {
   const pathname = usePathname()
+  /** ระดับสิทธิ์ของตัวเอง — เมนู Profile สงวนไว้ให้ super admin (ซ่อนจนกว่าจะรู้ระดับ) */
+  const level = useMyLevel()
+  const accountNav = ACCOUNT_NAV.filter((item) => item.id !== 'profile' || level === 'super_admin')
 
   /** ปุ่มเมนู 1 รายการ (แท็บในหน้า Dashboard) */
   const renderItem = ({ id, label, icon: Icon }: (typeof SECTIONS)[number]) => {
@@ -94,21 +98,15 @@ export function NavAdmin({ section, onSelect }: NavAdminProps) {
       >
         <ScanBarcode className="h-4 w-4" /> barcode
       </Link>
-      <Link
-        href="/settings"
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
-      >
-        <SettingsIcon className="h-4 w-4" /> Setting
-      </Link>
       <Separator className="my-2" />
       <div className="px-3 pb-1 text-[11px] font-semibold text-muted-foreground">DASHBOARD</div>
       {/* DASHBOARD — แท็บที่สลับด้วย state ในหน้า /dashboard/1 */}
       {SECTIONS.map(renderItem)}
 
-      {/* กลุ่ม ACCOUNT — เมนูที่แยกเป็นหน้าของตัวเอง (ลิงก์จริง) */}
+      {/* กลุ่ม ACCOUNT — เมนูที่แยกเป็นหน้าของตัวเอง (ลิงก์จริง) · Profile = super admin เท่านั้น */}
       <Separator className="my-2" />
       <div className="px-3 pb-1 text-[11px] font-semibold text-muted-foreground">ACCOUNT</div>
-      {ACCOUNT_NAV.map(renderLink)}
+      {accountNav.map(renderLink)}
     </aside>
   )
 }

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCustomerSession } from '@/lib/session-auth'
 import { ensureWalletCode, isLevelA } from '@/lib/member-level'
+import { resolveProfileLevel } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   const session = getCustomerSession(request)
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
         name: true,
         walletBalance: true,
         walletCode: true,
+        level: true,
       },
     })
     if (!user) {
@@ -39,6 +41,8 @@ export async function GET(request: NextRequest) {
       walletBalance: user.walletBalance,
       walletCode,
       levelA,
+      /** ระดับสิทธิ์ของตัวเอง (ใช้ซ่อน/แสดงเมนู Profile) — บัญชีเจ้าของงาน = super_admin */
+      level: resolveProfileLevel(user),
       hasLine: Boolean(user.lineUserId),
       hasGoogle: Boolean(user.googleId),
     })

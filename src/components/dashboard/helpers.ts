@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  CalendarDays, IdCard, MapPin, MessageCircle, PartyPopper, Receipt, Trophy, User, Wallet,
+  CalendarDays, IdCard, MapPin, MessageCircle, PartyPopper, Receipt, Search, Trophy, User, Wallet,
 } from 'lucide-react'
 
 export const DAY_OPTIONS = [
@@ -32,6 +32,7 @@ export const COURT_ICONS = ['1', '2', '3', '4', '5', '6']
 /** แท็บภายใน Dashboard ที่สลับด้วย state (หน้าอื่นมีไฟล์ page.tsx ของตัวเอง) */
 export const SECTIONS = [
   { id: 'court', label: 'Court', icon: MapPin },
+  { id: 'check', label: 'ตรวจสอบการจอง', icon: Search },
   { id: 'party-match', label: 'Party Match', icon: PartyPopper },
   { id: 'booking', label: 'Booking ticket', icon: CalendarDays },
   { id: 'slip', label: 'Slip update', icon: Receipt },

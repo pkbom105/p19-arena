@@ -7,6 +7,7 @@ import { Loader2, PartyPopper, Trophy } from 'lucide-react'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { BookingSection } from './booking-section'
+import { CheckSection } from './check-section'
 import { CourtSection } from './court-section'
 import { DashboardHeader } from './dashboard-header'
 import { NavAdmin } from './nav-admin'
@@ -355,6 +356,10 @@ export function DashboardView({ initialSection }: { initialSection?: string }) {
                 setShowNewPriceRule={setShowNewPriceRule}
                 saving={saving}
               />
+            </TabsContent>
+
+            <TabsContent value="check" className="space-y-6">
+              <CheckSection />
             </TabsContent>
 
             <TabsContent value="party-match" className="space-y-6">

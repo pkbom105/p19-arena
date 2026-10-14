@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Clock, MapPin, MessageCircle, PartyPopper, Receipt, Trophy } from 'lucide-react'
+import { Clock, MapPin, MessageCircle, PartyPopper, Receipt, Search, Trophy } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { useMyLevel } from '@/hooks/use-my-level'
 import { ACCOUNT_NAV } from './helpers'
 
 /**
@@ -21,11 +22,17 @@ const TAB_LINK_CLASS = `${TAB_CELL_CLASS} text-foreground [&_svg]:pointer-events
 /** แถบแท็บแนวนอน — แสดงเฉพาะจอเล็ก (เดสก์ท็อปใช้ Sidebar แทน) */
 export function SectionTabs() {
   const pathname = usePathname()
+  /** ระดับสิทธิ์ของตัวเอง — แท็บ Profile สงวนไว้ให้ super admin (ซ่อนจนกว่าจะรู้ระดับ) */
+  const level = useMyLevel()
+  const accountNav = ACCOUNT_NAV.filter((item) => item.id !== 'profile' || level === 'super_admin')
 
   return (
     <TabsList className="w-full lg:hidden mb-4 grid grid-cols-4 gap-1 h-auto items-stretch">
       <TabsTrigger value="court" className={TAB_CELL_CLASS}>
         <MapPin className="h-4 w-4" /> <span className="font-medium">Court</span>
+      </TabsTrigger>
+      <TabsTrigger value="check" className={TAB_CELL_CLASS}>
+        <Search className="h-4 w-4" /> <span className="font-medium">ตรวจการจอง</span>
       </TabsTrigger>
       <TabsTrigger value="party-match" className={TAB_CELL_CLASS}>
         <PartyPopper className="h-4 w-4" /> <span className="font-medium">Party Match</span>
@@ -42,8 +49,8 @@ export function SectionTabs() {
       <TabsTrigger value="line" className={TAB_CELL_CLASS}>
         <MessageCircle className="h-4 w-4" /> <span className="font-medium">LINE</span>
       </TabsTrigger>
-      {/* เมนูที่แยกเป็นหน้าของตัวเอง (กลุ่ม ACCOUNT) — เป็นลิงก์จริง */}
-      {ACCOUNT_NAV.map(({ label, icon: Icon, href }) => (
+      {/* เมนูที่แยกเป็นหน้าของตัวเอง (กลุ่ม ACCOUNT) — เป็นลิงก์จริง · Profile = super admin เท่านั้น */}
+      {accountNav.map(({ label, icon: Icon, href }) => (
         <Link
           key={href}
           href={href}

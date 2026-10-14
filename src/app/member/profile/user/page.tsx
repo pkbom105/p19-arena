@@ -1,12 +1,16 @@
 import { SiteHeader } from '@/components/site-header'
 import { ActivityGroupMenu } from '@/components/activity/group-menu'
 import { MemberLoginGate } from '@/components/member/member-login-gate'
+import { MemberInputProfilePanel } from '@/components/member/member-input-profile'
 import { MemberProfileMenu } from '@/components/member/member-profile-menu'
 import { MemberUserPanel } from '@/components/member/member-profile-card'
 
 export const metadata = { title: 'บัญชีผู้ใช้ — P19 Pickleball Arena' }
 
-/** หน้ากิจกรรม/สมาชิก > Profile > ผู้ใช้ — URL: /member/profile/user (ชื่อ/รูป + ช่องทาง + ปุ่มเชื่อม) */
+/**
+ * หน้ากิจกรรม/สมาชิก > Profile > ผู้ใช้ — URL: /member/profile/user
+ * แผงผู้ใช้ (ชื่อ/รูป + ช่องทาง) แล้วต่อด้วยแผง "Input profile" (placeholder · ข้อมูลชุดเดียวกับ /dashboard/1/account)
+ */
 export default function MemberUserPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-background">
@@ -16,6 +20,7 @@ export default function MemberUserPage() {
           <ActivityGroupMenu />
           <MemberProfileMenu />
           <MemberUserPanel />
+          <MemberInputProfilePanel />
         </MemberLoginGate>
       </main>
       <footer className="mt-auto border-t bg-white/60">

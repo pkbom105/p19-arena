@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { sanitizeSlipVerify } from '@/lib/slip-verify'
+import { requireAdminApi } from '@/lib/require-admin'
 
 export async function GET(request: Request) {
+  // ต้องเป็น admin ขึ้นไป (ดู profile.md — สิทธิ์ถูกตรวจฝั่งเซิร์ฟเวอร์เสมอ)
+  const guard = await requireAdminApi(request)
+  if ('response' in guard) return guard.response
+
   try {
     /** scope=recent → คืนรายการล่าสุด "ทุกสถานะ" (ใช้กับตาราง "รายการ Top-up ล่าสุด") — ค่าเริ่มต้น = เฉพาะ pending */
     const scope = new URL(request.url).searchParams.get('scope')
@@ -36,6 +41,9 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const guard = await requireAdminApi(request)
+  if ('response' in guard) return guard.response
+
   try {
     const body: unknown = await request.json()
     if (typeof body !== 'object' || body === null) {
@@ -101,6 +109,9 @@ function dataUrlBytes(dataUrl: string): number {
  * แล้วค่อยกดอนุมัติผ่าน PATCH เพื่อให้ยอดเข้ากระเป๋าลูกค้า
  */
 export async function POST(request: Request) {
+  const guard = await requireAdminApi(request)
+  if ('response' in guard) return guard.response
+
   try {
     const body: unknown = await request.json()
     if (typeof body !== 'object' || body === null) {

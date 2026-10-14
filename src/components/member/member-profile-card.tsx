@@ -8,7 +8,6 @@ import {
   Loader2,
   Mail,
   MessageCircle,
-  Sparkles,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
@@ -232,29 +231,7 @@ export function MemberWalletPanel() {
           <span className="text-lg font-bold text-emerald-700">{formatBaht(profile.walletBalance)}</span>
         </div>
 
-        {/* Wallet ID — ออกให้เมื่อเป็นสมาชิกระดับ A (ผูก LINE + Google ครบทั้งคู่) */}
-        {profile.walletCode ? (
-          <div className="space-y-1.5 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 text-sm text-emerald-800">
-                <Sparkles className="h-4 w-4" />
-                Wallet ID
-              </span>
-              <span className="font-mono text-sm font-bold tracking-wide text-emerald-700">{profile.walletCode}</span>
-            </div>
-            <p className="text-xs text-emerald-700">สมาชิกระดับ A — ใช้โปรโมชัน/ส่วนลดพิเศษได้</p>
-          </div>
-        ) : (
-          <div className="space-y-1 rounded-lg border border-dashed px-3 py-2">
-            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              ยังไม่มี Wallet ID
-            </p>
-            <p className="text-xs text-muted-foreground">
-              โน้ต: เมื่อเชื่อม LINE และ Gmail ครบทั้งคู่ จะได้รับ Wallet ID และใช้โปรโมชัน/ส่วนลดพิเศษได้
-            </p>
-          </div>
-        )}
+        {/* Wallet ID — ซ่อนตามคำสั่ง (ไม่แสดงทั้งรหัสและโน้ต) · ข้อมูล/API ยังอยู่ ไม่ถูกแตะ */}
 
         {/* ข้อความผลการเติมเงิน (สำเร็จ = เขียว · รอตรวจ/ไม่ผ่าน = แดง) */}
         {notice && (

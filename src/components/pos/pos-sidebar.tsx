@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { BarChart3, Dumbbell, LayoutDashboard, ScanBarcode, Settings as SettingsIcon, ShoppingCart, Store, Tags } from 'lucide-react'
+import { BarChart3, Dumbbell, LayoutDashboard, ScanBarcode, ShoppingCart, Store, Tags } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
 export type PosNavId = 'pos-booking' | 'pos-shop' | 'shop-setting' | 'shop-report' | 'barcode'
@@ -59,14 +59,6 @@ export function PosSidebar({ active = 'pos-booking', shopOnly = false }: { activ
           </Link>
         )
       )}
-      {!shopOnly && (
-        <Link
-          href="/settings"
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
-        >
-          <SettingsIcon className="h-4 w-4" /> Settings
-        </Link>
-      )}
     </aside>
   )
 }
@@ -96,11 +88,6 @@ export function PosMobileNav({ active = 'pos-booking', shopOnly = false }: { act
             <Icon className="h-4 w-4" /> {label}
           </Link>
         )
-      )}
-      {!shopOnly && (
-        <Link href="/settings" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted whitespace-nowrap">
-          <SettingsIcon className="h-4 w-4" /> Settings
-        </Link>
       )}
     </nav>
   )

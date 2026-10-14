@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Dumbbell, Phone, CalendarPlus, Search, Users, LayoutDashboard } from 'lucide-react'
+import { Dumbbell, Phone, CalendarPlus, Users, LayoutDashboard } from 'lucide-react'
 import { MemberLogoutButton } from '@/components/member/member-logout-button'
 import { apiUrl } from '@/lib/api'
 
@@ -12,9 +12,9 @@ const MEMBER_HREF = '/member'
 /** หน้าโปรไฟล์สมาชิก — ใช้เมื่อเช็คแล้วว่าล็อกอินอยู่ (กดเมนู Member แล้วเข้าโปรไฟล์เลย) */
 const MEMBER_PROFILE_HREF = '/member/profile'
 
+/** เมนูหลักของ header — "ตรวจสอบการจอง" ย้ายเข้า Dashboard แล้ว (/dashboard/1/check) URL เดิม /check ถูกลบ */
 const MENU_ITEMS = [
   { href: '/', label: 'จองสนาม', icon: CalendarPlus },
-  { href: '/check', label: 'ตรวจสอบการจอง', icon: Search },
   { href: MEMBER_HREF, label: 'Member', icon: Users },
 ]
 

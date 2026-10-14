@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Check, Coins, Loader2, UserRound, Wallet, X } from 'lucide-react'
+import { CalendarDays, Check, Coins, Loader2, Wallet, X } from 'lucide-react'
 import { apiUrl } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -274,16 +274,16 @@ export function TopupSection() {
           </div>
         </a>
 
-        <a
-          href="#customer-wallets"
+        <Link
+          href="/dashboard/1/profile"
           className="rounded-xl border bg-white p-4 transition-colors hover:bg-emerald-50/60"
         >
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Coins className="h-3.5 w-3.5 text-emerald-700" /> ยอดเงินคงเหลือ
           </div>
           <div className="mt-1 text-2xl font-bold text-emerald-700">{statsReady ? formatBalance(balanceTotal) : '฿0'}</div>
-          <div className="text-xs text-muted-foreground">รวมทุกกระเป๋าเงิน</div>
-        </a>
+          <div className="text-xs text-muted-foreground">ดูโปรไฟล์/กระเป๋าทั้งหมดที่หน้า Profile</div>
+        </Link>
       </div>
 
       {/* ใต้การ์ด 3 ใบ — แบ่ง 60/40: ซ้าย = ตารางรายการ, ขวา = Top Up Card + QR Payment */}
@@ -370,90 +370,6 @@ export function TopupSection() {
             )}
           </div>
 
-          <div id="customer-wallets" className="space-y-3 scroll-mt-20">
-            <h2 className="font-semibold">Customer wallets</h2>
-            {members.length === 0 ? (
-        <p className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-          No customers yet.
-        </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {members.map((member) => {
-                  const displayName = member.lineDisplayName || member.googleName || member.name || 'Customer'
-                  const avatar = member.linePictureUrl || member.googlePictureUrl || null
-                  const channels = [
-                    member.lineUserId ? 'LINE' : null,
-                    member.googleId ? 'Google' : null,
-                  ].filter((c): c is string => Boolean(c))
-
-                  return (
-                    <Card key={member.id}>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                        <CardTitle className="flex min-w-0 items-center gap-3 text-base">
-                          {avatar ? (
-                            <img
-                              src={avatar}
-                              alt=""
-                              className="h-11 w-11 shrink-0 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                              <UserRound className="h-5 w-5" />
-                            </span>
-                          )}
-                          <span className="truncate">{displayName}</span>
-                        </CardTitle>
-                        {channels.length > 0 && (
-                          <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                            {channels.map((channel) => (
-                              <span
-                                key={channel}
-                                className={channel === 'LINE'
-                                  ? 'rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] text-green-700'
-                                  : 'rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600'}
-                              >
-                                {channel}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                          <div>
-                            <dt className="text-xs text-muted-foreground">Name</dt>
-                            <dd className="truncate">{member.name || '—'}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-muted-foreground">Phone</dt>
-                            <dd className="truncate">{member.phone || '—'}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-muted-foreground">Email</dt>
-                            <dd className="truncate">{member.email || '—'}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-muted-foreground">Bookings</dt>
-                            <dd>{member._count.bookings}</dd>
-                          </div>
-                        </dl>
-
-                        <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
-                          <span className="flex items-center gap-2 text-sm text-emerald-800">
-                            <Wallet className="h-4 w-4" />
-                            Wallet balance
-                          </span>
-                          <span className="font-semibold text-emerald-900">
-                            {formatBalance(member.walletBalance)}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-          </div>
         </>
       )}
     </section>
